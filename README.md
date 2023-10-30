@@ -3,17 +3,17 @@ A project for the data engneering class at INSA Lyon
 
 
 ## TODO
-- [ ] getting the data at out appartment because of the bad speed of the internet on the library 
+- [ ] getting the data at out appartment because of the bad speed of the internet on the library
+- [ ] atm data is in the repo in fileformat, think of writing code to download it in the ingestion process to keep the repo clean
 
 ### A
-- [ ] download the temparature dataset
+- [x] download the temparature dataset
 - [ ] check wrangling needs
 - [ ] check size
 
 ### D
 
 ### S
-- [ ] download the whales movement dataset
 
 ## Questions
 Question 1: How do variations in water temperature and ocean currents affect the migratory patterns of different whale species?
