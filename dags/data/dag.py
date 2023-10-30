@@ -9,7 +9,7 @@ import pandas as pd
 
 #  constants
 TEMPERATURE_DATASET_PATH = "./ingestion/GlobalLandTemperaturesByMajorCity.json"
-TEMPERATURE_CLEAN_DATASET_PATH = "./staging/GlobalLandTemperaturesByMajorCity.json"
+TEMPERATURE_CLEAN_DATASET_PATH = "./staging/GlobalLandTemperaturesByMajorCity.csv"
 
 #  DAG definition
 default_args_dict = {
@@ -30,7 +30,19 @@ global_dag = DAG(
 #  functions
 def import_clean_temperature_data():
     temperature_data = pd.read_json(TEMPERATURE_DATASET_PATH)
+    temperature_data["dt"] = pd.to_datetime(temperature_data["dt"])
     temperature_data = temperature_data.drop(columns={"AverageTemperatureUncertainty"})
-    temperature_data.to_json(TEMPERATURE_CLEAN_DATASET_PATH)
+    temperature_data = temperature_data.rename(columns={"dt": "datetime"})
+    #  replaces empty AT fields with 0
+    #  TODO: think of smarter value
+    temperature_data['AverageTemperature'].replace('', 0, inplace=True)
+    #  i am not sure why this is not working correctly
+    #  temperature_data.round({"AverageTemperature": 2})
+
+    start_date = pd.to_datetime("1900-01-01")
+    #  drops all entries before 'start_date'
+    temperature_data = temperature_data[temperature_data["datetime"] >= start_date]
+
+    temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
 #  operator definition
