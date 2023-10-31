@@ -6,11 +6,15 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 import pandas as pd
+from pymongo import MongoClient
+import csv
 
 #  constants
 TEMPERATURE_DATASET_PATH = "./ingestion/GlobalLandTemperaturesByMajorCity.json"
 TEMPERATURE_CLEAN_DATASET_PATH = "./staging/GlobalLandTemperaturesByMajorCity.csv"
-
+#  TODO: has to be evaluated by synne
+MONGODB_IP = ""
+MONGODB_PORT = ""
 #  DAG definition
 default_args_dict = {
     'start_date': airflow.utils.dates.days_ago(0),
@@ -44,5 +48,16 @@ def import_clean_temperature_data():
     temperature_data = temperature_data[temperature_data["datetime"] >= start_date]
 
     temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
+
+def import_csv_to_mongodb(csv_file, db_name, collection_name):
+    client = MongoClient(MONGODB_IP, MONGODB_PORT)
+
+    db = client[db_name]
+    collection = db[collection_name]
+
+    with open(csv_file, 'r') as file:
+        csvreader = csv.DictReader(file)
+        for row in csvreader:
+            collection.insert_one(row)
 
 #  operator definition
