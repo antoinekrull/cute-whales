@@ -6,27 +6,27 @@ A project for the data engneering class at INSA Lyon
 - [ ] getting the data at out appartment because of the bad speed of the internet on the library 
 
 ### A
-- [ ] download the temparature dataset
-- [ ] check wrangling needs
-- [ ] check size
+- [ ] Ingest temperature data & Germany data
+- [ ] code to clean .csv files and writes it into the databases
 
 ### D
+- [ ] Ingest data for France
 
 ### S
-- [ ] download the whales movement dataset
+- [ ] set up mongodb docker container to copy data
 
 ## Questions
-Question 1: How do variations in water temperature and ocean currents affect the migratory patterns of different whale species?
+Question 1: Are there correlations between temperature variations in major cities around the world and mortality rates in different regions of Germany and France?
 
-Question 2: Can we identify regions where whales are more likely to aggregate based on water temperature and current data?
+Question 2: How do temperature-related factors, such as extreme heat events or prolonged cold spells, impact mortality rates in specific regions, and can we identify vulnerable regions?
 
-Question 3: Is there a correlation between specific oceanographic factors and the timing of whale migrations or their choice of feeding areas?
+Question 3: Can climate and temperature data be used to provide early warnings or insights for public health interventions in regions with increased mortality risks due to temperature extremes?
 
 ## Data Pipeline Design
 
 ### Ingestion (Pipeline 1):
-Ingest raw whale movement data from sources like research institutions or databases.
-Ingest raw oceanographic data from sources like oceanographic agencies or databases.
+Ingest city temperature data from sources.
+Ingest German and French mortality data from sources.
 Store this data in a landing zone, which could be cloud-based storage or a local database.
 Use Apache Airflow to automate data ingestion and schedule updates.
 
