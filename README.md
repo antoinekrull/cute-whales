@@ -3,7 +3,8 @@ A project for the data engneering class at INSA Lyon
 
 
 ## TODO
-- [ ] getting the data at out appartment because of the bad speed of the internet on the library 
+- [ ] getting the data at out appartment because of the bad speed of the internet on the library
+- [ ] atm data is in the repo in fileformat, think of writing code to download it in the ingestion process to keep the repo clean
 
 ### A
 - [ ] Ingest temperature data & Germany data
