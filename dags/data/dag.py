@@ -13,8 +13,8 @@ import csv
 TEMPERATURE_DATASET_PATH = "./ingestion/GlobalLandTemperaturesByMajorCity.json"
 TEMPERATURE_CLEAN_DATASET_PATH = "./staging/GlobalLandTemperaturesByMajorCity.csv"
 #  TODO: has to be evaluated by synne
-MONGODB_IP = ""
-MONGODB_PORT = ""
+MONGODB_IP = "127.0.0.0"
+MONGODB_PORT = "27017"
 #  DAG definition
 default_args_dict = {
     'start_date': airflow.utils.dates.days_ago(0),
