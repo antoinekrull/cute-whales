@@ -12,9 +12,7 @@ import csv
 #  constants
 TEMPERATURE_DATASET_PATH = "./ingestion/GlobalLandTemperaturesByMajorCity.json"
 TEMPERATURE_CLEAN_DATASET_PATH = "./staging/GlobalLandTemperaturesByMajorCity.csv"
-#  TODO: has to be evaluated by synne
 MONGODB_IP = "127.0.0.0"
-MONGODB_PORT = "27017"
 #  DAG definition
 default_args_dict = {
     'start_date': airflow.utils.dates.days_ago(0),
@@ -49,8 +47,8 @@ def import_clean_temperature_data():
 
     temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
-def import_csv_to_mongodb(csv_file, db_name, collection_name):
-    client = MongoClient(MONGODB_IP, MONGODB_PORT)
+def import_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
+    client = MongoClient(MONGODB_IP, mongodb_port)
 
     db = client[db_name]
     collection = db[collection_name]
