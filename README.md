@@ -9,10 +9,12 @@ A small project for the data engneering class at INSA Lyon
 5. Add a connection to the postgres SQL database. Navigate To the Admin -> Connections menu, then click the blue + button to add a new connection.
 After it is up, add a new connection:
 
-Name - postgres_default
-Conn type - postgres
-Host - localhost
-Port - 5432
-Database - airflow
-Username - airflow
-Password - airflow
+After it is up, add a new connection:
+
+* Name - postgres_default
+* Conn type - postgres
+* Host - localhost
+* Port - 5432
+* Database - airflow
+* Username - airflow
+* Password - airflow
