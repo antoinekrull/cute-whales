@@ -72,8 +72,6 @@ def import_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_nam
             document = {
                 "year": split_row[0],
                 "month": split_row[1],
-                "men": split_row[2],
-                "woman": split_row[3],
                 #  drops the "\n" at the end of the total number
                 "total": split_row[4][:-2]
             }
