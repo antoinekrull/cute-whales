@@ -92,11 +92,19 @@ Persist the combined data into a staging zone for durability.
 - Include image of postgres database and how data is saved in table
 
 ### Production Analytics (Pipeline 3):
-Design a database to store the cleaned and enriched data.
-Implement SQL queries to analyze the data based on the formulated questions.
-Create data marts or views to facilitate analytical queries.
-Use Apache Airflow for scheduling regular updates of the data marts.
+For the production phase we start by saving the data from our postgres-table to neo4j in order to simplify the data as well as query the graph-database in order to answer our questions. In the graph databse the nodes will be City nodes and Temperature-nodes, where the relation between the nodes are the number of deaths in a given month of a given year corresponding to the temperature of this month in this year and the region this temperature was recorded. The databse look like this:
+- Include image of grapha-database from neo4j (?)
 
-- Include image of grapha-database (?)
-- Include query to answer question 1
-- Inlude query to answer question 2
+#### Queries
+Query question 1:
+MATCH (city:City)-[r:HAS_DEATHS]->(temperature:Temperature)
+RETURN city.name, temperature.value, r.year, r.month, r.number_of_deaths, r.region
+ORDER BY r.number_of_deaths DESC;
+
+Query question 2:
+MATCH (temperature:Temperature)<-[r:HAS_DEATHS]-(city:City)
+WHERE r.number_of_deaths > threshold // specify the threshold for extreme events
+RETURN city.name, temperature.value, r.year, r.month, r.number_of_deaths, r.region
+ORDER BY r.number_of_deaths DESC;
+
+TODO: Find some way to visualize the data from the queries. Mabye implement another task in the production-DAG to ask the queries as well as visualizing the result.
