@@ -13,7 +13,12 @@ TEMPERATURE_DATASET_PATH = "./ingestion/GlobalLandTemperaturesByMajorCity.json"
 DEATH_BERLIN_DATASET_PATH = "./ingestion/deaths_berlin.csv"
 DEATH_BERLIN_CLEAN_DATASET_PATH = "./staging/deaths_berlin.csv"
 TEMPERATURE_CLEAN_DATASET_PATH = "./staging/GlobalLandTemperaturesByMajorCity.csv"
+FR_DEATH_DATASET_URL = 'https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5'
+FR_DEATH_INGESTION_DATA_PATH = './ingestion/fr/'
+FR_DEATH_CLEAN_DATA_PATH = './staging/'
+PARIS_GEOGRAPHIC_CODE = '75'
 MONGODB_IP = "127.0.0.1"
+
 #  DAG definition
 default_args_dict = {
     'start_date': airflow.utils.dates.days_ago(0),
@@ -102,5 +107,46 @@ def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collectio
                 "Longitude": split_row[4]
             }
             collection.insert_one(document)
+            
+def fr_get_death_files_list():
+    import requests
+    with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'w') as f:
+        resources = requests.get(FR_DEATH_DATASET_URL).json()['resources']
+        for r in resources:
+            f.write(r['latest']+ '\n')
+
+def fr_get_all_death_files():
+    import requests
+    with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'r') as f:
+        for i, line in enumerate(f): 
+            with open(f'{FR_DEATH_INGESTION_DATA_PATH}data{i}.txt', 'w') as f1:
+                try:
+                    res= requests.get(line.strip())
+                    f1.write(res.content.decode('UTF-8'))
+                    #time.sleep(1)
+                except(UnicodeEncodeError):
+                        print(f"In file {i} occured an encoding error")
+                except(UnicodeDecodeError):
+                        print(f"In file {i} occured an decoding error")
+
+def fr_collect_specific_location_data(PARIS_GEOGRAPHIC_CODE):
+    import glob
+    location = PARIS_GEOGRAPHIC_CODE
+    files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
+    for f in files:
+        with open(f'{FR_DEATH_INGESTION_DATA_PATH}f', 'r') as f2:
+            for line in f2:
+                death_location = line[162:167]
+                if (death_location[:2] == location):
+                    with open(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt','a') as f3:
+                            name = line[:80].strip().strip('/').replace('*', ' ')
+                            death_date = line[154:162]
+                            f3.write(f'{name}, {death_date}, {death_location} \n')
+
+def fr_death_data_to_csv():
+    account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}', header= None)
+    account.columns = ['Name', 'Date of death', 'Location of Death']
+    account.to_csv(f'{FR_DEATH_CLEAN_DATA_PATH}ParisDeathData.csv', index= None)
+
 
 #  operator definition
