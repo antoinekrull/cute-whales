@@ -148,5 +148,29 @@ def fr_death_data_to_csv():
     account.columns = ['Name', 'Date of death', 'Location of Death']
     account.to_csv(f'{FR_DEATH_CLEAN_DATA_PATH}ParisDeathData.csv', index= None)
 
+def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
+    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
+
+    #  here to ensure that each time a fresh collection is created in the container
+    #  the purpose of that is to make safe that during development new changes can be
+    #  seen straight away
+    my_col = db[collection_name]
+    my_col.drop()
+
+    db = client[db_name]
+    collection = db[collection_name]
+
+    with open(csv_file, 'r') as file:
+        # skip row with column titles
+        lines = file.readlines()
+        for row in lines[1:]:
+            split_row = row.split(",")
+            document = {
+                "Name": split_row[0],
+                "Date": split_row[1],
+                # drops '\n' from the location
+                "Location": split_row[2][:-1],
+            }
+            collection.insert_one(document)
 
 #  operator definition
