@@ -44,17 +44,33 @@ Our data will be structured something like this, with an example:
 The vislualization will :
 ```mermaid
 flowchart LR
-    t1((1°-5°)) -- Berlin, April --> d1((117))
-    t2((6°-10)) -- Berlin, October --> d2((87))
-    t3((11°-15°)) -- Paris, April --> d3((14))
-    t4((16°-20°)) --Berlin, May --> d4((157))
-    t5((21°-25°)) -- Paris, May --> d5((204))
-    t6((-5°-0°)) -- Berlin, November --> d6((59))
-    t7((-10°- -6°)) -- Berlin, January --> d3((14))
-    t8((11°-15°)) -- Paris, October --> d7((143))
+    t1((1°- 5°)) -- Berlin, April, 2020 --> d1((117))
+    t1((1°- 5°)) -- Paris, Mars, 2018 --> d2((57))
+    t2((6°-10)) -- Berlin, October, 2015 --> d3((87))
+    t3((11°-15°)) -- Paris, April, 2021 --> d1((117))
+    t4((16°-20°)) --Berlin, May, 2018 --> d4((158))
+    t5((21°-25°)) -- Paris, May, 2019 --> d4((158)) 
+    t3((11°-15°)) -- Paris, October, 2016 --> d3((87))
+    t4((16°-20°)) -- Berlin, June, 2017 --> d2((57))
 ```
 
+## Data sources
+The project utilises three different datasources:
+
+### Temperature 
+This dataset contains information about XXX in a .json-file an is structured with coloums XXX
+- Include visualization of the data (?)
+
+### Deaths in France
+This dataset contains information about XXX in a .txt-file an is structured with coloums XXX
+- Include visualization of the data (?)
+
+### Deaths in Berlin
+This dataset contains information about XXX in a .csv-file an is structured with coloums XXX
+- Include visualization of the data (?)
+
 ## Data Pipeline Design
+- figure here
 
 ### Ingestion (Pipeline 1):
 Ingest city temperature data from sources.
@@ -62,11 +78,18 @@ Ingest German and French mortality data from sources.
 Store this data in a landing zone, which could be cloud-based storage or a local database.
 Use Apache Airflow to automate data ingestion and schedule updates.
 
+- Explain how we ingest the data
+- Inclue an image of the collections in MongoDB
+- Include image of DAG (?)
+
 ### Staging (Pipeline 2):
 Clean and preprocess the raw data, addressing missing values or inconsistencies.
 Join the cleaned whale movement data with oceanographic data to enrich the dataset.
 Transform the data into a structured format suitable for analysis.
 Persist the combined data into a staging zone for durability.
+
+- Include image of DAG (?)
+- Include image of postgres database and how data is saved in table
 
 ### Production Analytics (Pipeline 3):
 Design a database to store the cleaned and enriched data.
@@ -74,3 +97,6 @@ Implement SQL queries to analyze the data based on the formulated questions.
 Create data marts or views to facilitate analytical queries.
 Use Apache Airflow for scheduling regular updates of the data marts.
 
+- Include image of grapha-database (?)
+- Include query to answer question 1
+- Inlude query to answer question 2
