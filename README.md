@@ -90,6 +90,7 @@ Persist the combined data into a staging zone for durability.
 
 - Include image of DAG (?)
 - Include image of postgres database and how data is saved in table
+- Include a STAR-diagram of the postgres
 
 ### Production Analytics (Pipeline 3):
 Design a database to store the cleaned and enriched data.
