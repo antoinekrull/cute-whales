@@ -167,7 +167,8 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
             split_row = row.split(",")
             document = {
                 "Name": split_row[0],
-                "Date": split_row[1],
+                "Year": split_row[1][:4],
+                "Month": split_row[1][4:6],
                 # drops '\n' from the location
                 "Location": split_row[2][:-1],
             }
