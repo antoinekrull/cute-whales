@@ -16,9 +16,7 @@ Cute Whales is a Python package for simulating whale migration using artificial 
 ---
 
 ## Our pipeline
-
-figure here
-- I have started working on this (S)
+![alt text](/Pipeline.png)
 
 ---
 
@@ -52,4 +50,4 @@ include a stardiagram of our postgres-database (?)
 
 ---
 
-# Thank you (?)
+# Thank you

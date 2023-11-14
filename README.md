@@ -70,7 +70,7 @@ This dataset contains information about XXX in a .csv-file an is structured with
 - Include visualization of the data (?)
 
 ## Data Pipeline Design
-- figure here
+![alt text](/Pipeline.png)
 
 ### Ingestion (Pipeline 1):
 Ingest city temperature data from sources.
