@@ -57,6 +57,7 @@ def _saving_to_neo4j(
 
     graph.delete_all()
     tx = graph.begin()
+    # rewrite this code
     for _, row in df.iterrows():
         print(f"Processing data for {row['region']} in {row['month']} {row['year']}")
         tx.evaluate('''
@@ -79,13 +80,13 @@ graph_node = PythonOperator(
     trigger_rule="all_success",
     python_callable=_saving_to_neo4j,
     op_kwargs={
-        "pg_user": "your_pg_user",
-        "pg_pwd": "your_pg_password",
-        "pg_host": "your_pg_host",
-        "pg_port": "your_pg_port",
-        "pg_db": "your_pg_database",
-        "neo_host": "your_neo_host",
-        "neo_port": "your_neo_port",
+        "pg_user": "airflow",
+        "pg_pwd": "airflow",
+        "pg_host": "postgres",
+        "pg_port": "5432",
+        "pg_db": "postgres",
+        "neo_host": "neo4j",
+        "neo_port": "7474",
     },
 )
 
