@@ -169,8 +169,7 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
                 "Name": split_row[0],
                 "Year": split_row[1][:4],
                 "Month": split_row[1][4:6],
-                # drops '\n' from the location
-                "Location": split_row[2][:-1],
+                "Location": "Paris",
             }
             collection.insert_one(document)
 
