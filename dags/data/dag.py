@@ -58,7 +58,7 @@ def ber_import_clean_death_data():
     death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH)
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
-def import_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
+def import_ber_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
 
     #  here to ensure that each time a fresh collection is created in the container
@@ -215,3 +215,21 @@ with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_
             trigger_rule='all_success',
             depends_on_past=False,
         )
+
+    import_ber_death_data_to_mongodb = PythonOperator(
+                task_id='import_ber_deaths_to_mongodb',
+                dag=dag,
+                python_callable=import_ber_deaths_csv_to_mongodb,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
+    
+    import_temperature_csv_to_mongodb = PythonOperator(
+                task_id='import_temperature_to_mongodb',
+                dag=dag,
+                python_callable=import_temperature_csv_to_mongodb,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
