@@ -133,7 +133,7 @@ execute_query_node = PythonOperator(
     python_callable = execute_query,
     op_kwargs={
         "neo_host": "localhost",
-        "neo_port": "7474",
+        "neo_port": "7687",
     },
 )
 

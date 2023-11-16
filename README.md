@@ -97,14 +97,12 @@ For the production phase we start by saving the data from our postgres-table to 
 
 #### Queries
 Query question 1:
-MATCH (city:City)-[r:HAS_DEATHS]->(temperature:Temperature)
-RETURN city.name, temperature.value, r.year, r.month, r.number_of_deaths, r.region
-ORDER BY r.number_of_deaths DESC;
+MATCH (t:Temperature)-[r:IN_REGION]->(d:Deaths)
+RETURN t.value, d.value, r.region, r.year, r.month
+ORDER BY d.value DESC;
 
 Query question 2:
-MATCH (temperature:Temperature)<-[r:HAS_DEATHS]-(city:City)
-WHERE r.number_of_deaths > threshold // specify the threshold for extreme events
-RETURN city.name, temperature.value, r.year, r.month, r.number_of_deaths, r.region
-ORDER BY r.number_of_deaths DESC;
-
-TODO: Find some way to visualize the data from the queries. Mabye implement another task in the production-DAG to ask the queries as well as visualizing the result.
+MATCH (t:Temperature)<-[r:IN_REGION]-(d:Deaths)
+WHERE d.total_deaths > threshold // specify the threshold for extreme events
+RETURN t.value, d.value, r.region, r.year, r.month
+ORDER BY d.total_deaths DESC;
