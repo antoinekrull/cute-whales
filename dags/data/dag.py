@@ -77,11 +77,29 @@ def import_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_nam
             split_row = row.split(";")
             document = {
                 "year": split_row[0],
-                "month": split_row[1],
+                "month": get_number_of_month(split_row[1]),
+                "region": "Berlin",
                 #  drops the "\n" at the end of the total number
                 "total": split_row[4][:-2]
             }
             collection.insert_one(document)
+    
+def get_number_of_month(month):
+    month_dict = {
+        "Januar": 1,
+        "Februar": 2,
+        "März": 3,
+        "April": 4,
+        "Mai": 5,
+        "Juni": 6,
+        "Juli": 7,
+        "August": 8,
+        "September": 9,
+        "Oktober": 10,
+        "November": 11,
+        "Dezember": 12
+    }
+    return month_dict.get(month)
 
 def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
@@ -103,9 +121,7 @@ def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collectio
                 "datetime": split_row[0],
                 "AverageTemperature": split_row[1],
                 "City": split_row[2],
-                "Country": split_row[3],
-                "Latitude": split_row[3],
-                "Longitude": split_row[4]
+                "Country": split_row[3]
             }
             collection.insert_one(document)
             
