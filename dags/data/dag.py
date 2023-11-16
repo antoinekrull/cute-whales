@@ -5,6 +5,7 @@ from airflow.operators.bash_operator import BashOperator
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.utils.task_group import TaskGroup
 import pandas as pd
 from pymongo import MongoClient
 
@@ -28,8 +29,8 @@ default_args_dict = {
     'retry_delay': datetime.timedelta(seconds=10),
 }
 
-global_dag = DAG(
-    dag_id='global_dag',
+dag = DAG(
+    dag_id='dag',
     default_args=default_args_dict,
     catchup=False,
     template_searchpath=['/opt/airflow/dags/']
@@ -175,3 +176,18 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
             collection.insert_one(document)
 
 #  operator definition
+
+with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_pipeline:
+    start = DummyOperator(
+            task_id='start',
+            dag=dag,
+        )
+
+    get_nuclear_data = PythonOperator(
+            task_id='get_nuclear_data',
+            dag=dag,
+            python_callable=pull_nuclear_plants,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
