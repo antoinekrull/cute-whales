@@ -54,7 +54,7 @@ def import_clean_temperature_data():
 
     temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
-def import_clean_death_data():
+def ber_import_clean_death_data():
     death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH)
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
@@ -182,10 +182,19 @@ with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_
             dag=dag,
         )
 
-    get_nuclear_data = PythonOperator(
-            task_id='get_nuclear_data',
+    get_temperature_data = PythonOperator(
+            task_id='get_clean_temperature',
             dag=dag,
-            python_callable=pull_nuclear_plants,
+            python_callable=import_clean_temperature_data,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
+    
+    get_ber_death_data = PythonOperator(
+            task_id='get_ber_deaths',
+            dag=dag,
+            python_callable=ber_import_clean_death_data,
             op_kwargs={},
             trigger_rule='all_success',
             depends_on_past=False,
