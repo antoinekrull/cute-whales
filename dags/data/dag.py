@@ -190,6 +190,51 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
             }
             collection.insert_one(document)
 
+def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, collection_staging):
+    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
+    #  here to ensure that each time a fresh collection is created in the container
+    #  the purpose of that is to make safe that during development new changes can be
+    #  seen straight away
+    my_col = db[collection_staging]
+    my_col.drop()
+
+    db = client[db_name]
+    stag_coll = db[collection_staging]
+    ing_coll = db.get_collection(collection_ingestion)
+
+    # counts the number of people who died in each month of each year
+    pipeline = [
+            {
+                '$group': {
+                    '_id': {
+                        'Year': '$Year',
+                        'Month': '$Month'
+                    },
+                    'totalDeaths': {'$sum': 1},
+                },
+            },
+            {
+                '$project': {
+                    '_id': 0,
+                    'year': '$_id.Year',
+                    'month': '$_id.Month',
+                    'totalDeaths': 1
+                },
+            },
+        ]
+    result = list(ing_coll.aggregate(pipeline))
+    
+    # inserts the results of the pipeline into the staging collection as seperate documents
+    for r in result:
+        document = {
+            "year" : r['year'],
+            "month" : r['month'],
+            "region" : "Paris",
+            "total deaths" :  r['totalDeaths']
+        }
+        stag_coll.insert_one(document)
+        
+
 #  operator definition
 
 with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_pipeline:
@@ -229,6 +274,60 @@ with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_
                 task_id='import_temperature_to_mongodb',
                 dag=dag,
                 python_callable=import_temperature_csv_to_mongodb,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
+
+    fr_get_death_files_list = PythonOperator(
+                task_id='fr_get_death_files_list',
+                dag=dag,
+                python_callable=fr_get_death_files_list,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
+    
+    fr_get_all_death_files = PythonOperator(
+                task_id='fr_get_all_death_files',
+                dag=dag,
+                python_callable=fr_get_all_death_files,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
+    
+     fr_collect_specific_location_data = PythonOperator(
+                task_id='fr_collect_specific_location_data',
+                dag=dag,
+                python_callable=fr_collect_specific_location_data,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
+    
+    fr_death_data_to_csv = PythonOperator(
+                task_id='fr_death_data_to_csv',
+                dag=dag,
+                python_callable=fr_death_data_to_csv,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
+
+    import_fr_deaths_csv_to_mongodb = PythonOperator(
+                task_id='import_fr_deaths_csv_to_mongodb',
+                dag=dag,
+                python_callable=import_fr_deaths_csv_to_mongodb,
+                op_kwargs={},
+                trigger_rule='all_success',
+                depends_on_past=False,
+            )
+    
+    wrangle_fr_death_data_in_mongodb = PythonOperator(
+                task_id='wrangle_fr_death_data_in_mongodb',
+                dag=dag,
+                python_callable=wrangle_fr_death_data_in_mongodb,
                 op_kwargs={},
                 trigger_rule='all_success',
                 depends_on_past=False,
