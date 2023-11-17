@@ -1,13 +1,13 @@
 # TODOS
-- [ ] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
+- [x] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
 - [ ] **A**: finish all the operators in the dag
-- [ ] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
+- [x] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
 - [ ] **D**: wrangle the french data, count the number of names in given moths of given years. Format: (year, month, region, total deaths)
 - [ ] merge deaths datasets to one death collection
 - [ ] merge death data with temperature data. Format: (year, month (int), region, temperature, total deaths)
 - [ ] save data to postgres on format: (year, month (int), region, temperature, total deaths)
 - [ ] **Everybody**: Make presentation slides (each person make slides bout the things they have coded)
-- [ ] **S**: Fix the airflow borken DAG error
+- [ ] **S**: Fix the airflow broken DAG error
 
 # cute-whales
 A project for the data engneering class at INSA Lyon.
