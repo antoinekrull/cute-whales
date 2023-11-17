@@ -85,21 +85,30 @@ def import_ber_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection
             collection.insert_one(document)
     
 def get_number_of_month(month):
-    month_dict = {
-        "Januar": 1,
-        "Februar": 2,
-        "März": 3,
-        "April": 4,
-        "Mai": 5,
-        "Juni": 6,
-        "Juli": 7,
-        "August": 8,
-        "September": 9,
-        "Oktober": 10,
-        "November": 11,
-        "Dezember": 12
-    }
-    return month_dict.get(month)
+    if month == "Januar" or month == "01":
+        return 1
+    elif month == "Februar" or month == "02":
+        return 2
+    elif month == "März" or month == "03":
+        return 3
+    elif month == "April" or month == "04":
+        return 4
+    elif month == "Mai" or month == "05":
+        return 5
+    elif month == "Juni" or month == "06":
+        return 6
+    elif month == "Juli" or month == "07":
+        return 7
+    elif month == "August" or month == "08":
+        return 8
+    elif month == "September" or month == "09":
+        return 9
+    elif month == "Oktober" or month == "10":
+        return 10
+    elif month == "November" or month == "11":
+        return 11
+    else:
+        return 12
 
 def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
@@ -118,10 +127,12 @@ def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collectio
         for row in lines:
             split_row = row.split(",")
             document = {
-                "datetime": split_row[0],
-                "AverageTemperature": split_row[1],
-                "City": split_row[2],
-                "Country": split_row[3]
+                #  returns the year chars from the datetime string
+                "year": split_row[0][:4],
+                #  returns the month chars from the datetime string
+                "month": split_row[0][5:7],
+                "region": split_row[2],
+                "temperature": split_row[1],
             }
             collection.insert_one(document)
             
@@ -191,7 +202,7 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
             collection.insert_one(document)
 
 def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, collection_staging):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
+    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongo_port}")
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
@@ -297,7 +308,7 @@ with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_
                 depends_on_past=False,
             )
     
-     fr_collect_specific_location_data = PythonOperator(
+    fr_collect_specific_location_data = PythonOperator(
                 task_id='fr_collect_specific_location_data',
                 dag=dag,
                 python_callable=fr_collect_specific_location_data,
