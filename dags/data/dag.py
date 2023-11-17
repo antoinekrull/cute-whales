@@ -80,7 +80,7 @@ def import_ber_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection
                 "month": get_number_of_month(split_row[1]),
                 "region": "Berlin",
                 #  drops the "\n" at the end of the total number
-                "total": split_row[4][:-2]
+                "total deaths": split_row[4][:-2]
             }
             collection.insert_one(document)
     
@@ -275,7 +275,7 @@ with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_
     import_ber_death_data_to_mongodb = PythonOperator(
                 task_id='import_ber_deaths_to_mongodb',
                 dag=dag,
-                python_callable=import_ber_deaths_csv_to_mongodb,
+                python_callable=import_ber_deaths_csv_to_mongodb(27017, "./ingestion/deaths_berlin.csv", "temperature_deaths", "ber_deaths"),
                 op_kwargs={},
                 trigger_rule='all_success',
                 depends_on_past=False,
@@ -284,7 +284,7 @@ with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_
     import_temperature_csv_to_mongodb = PythonOperator(
                 task_id='import_temperature_to_mongodb',
                 dag=dag,
-                python_callable=import_temperature_csv_to_mongodb,
+                python_callable=import_temperature_csv_to_mongodb(27017, "./staging/GlobalLandTemperaturesByMajorCity.csv", "temperature_deaths", "temperature"),
                 op_kwargs={},
                 trigger_rule='all_success',
                 depends_on_past=False,
