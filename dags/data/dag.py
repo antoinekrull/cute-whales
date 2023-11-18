@@ -247,99 +247,97 @@ def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, 
         
 
 #  operator definition
+start = DummyOperator(
+        task_id='start',
+        dag=dag,
+    )
 
-with TaskGroup("ingestion_pipeline","data ingestion step",dag=dag) as ingestion_pipeline:
-    start = DummyOperator(
-            task_id='start',
-            dag=dag,
-        )
+get_temperature_data = PythonOperator(
+        task_id='get_clean_temperature',
+        dag=dag,
+        python_callable=import_clean_temperature_data,
+        op_kwargs={},
+        trigger_rule='all_success',
+        depends_on_past=False,
+    )
 
-    get_temperature_data = PythonOperator(
-            task_id='get_clean_temperature',
+get_ber_death_data = PythonOperator(
+        task_id='get_ber_deaths',
+        dag=dag,
+        python_callable=ber_import_clean_death_data,
+        op_kwargs={},
+        trigger_rule='all_success',
+        depends_on_past=False,
+    )
+
+import_ber_death_data_to_mongodb = PythonOperator(
+            task_id='import_ber_deaths_to_mongodb',
             dag=dag,
-            python_callable=import_clean_temperature_data,
+            python_callable=import_ber_deaths_csv_to_mongodb(27017, "./ingestion/deaths_berlin.csv", "temperature_deaths", "ber_deaths"),
             op_kwargs={},
             trigger_rule='all_success',
             depends_on_past=False,
         )
-    
-    get_ber_death_data = PythonOperator(
-            task_id='get_ber_deaths',
+
+import_temperature_csv_to_mongodb = PythonOperator(
+            task_id='import_temperature_to_mongodb',
             dag=dag,
-            python_callable=ber_import_clean_death_data,
+            python_callable=import_temperature_csv_to_mongodb(27017, "./staging/GlobalLandTemperaturesByMajorCity.csv", "temperature_deaths", "temperature"),
             op_kwargs={},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-    import_ber_death_data_to_mongodb = PythonOperator(
-                task_id='import_ber_deaths_to_mongodb',
-                dag=dag,
-                python_callable=import_ber_deaths_csv_to_mongodb(27017, "./ingestion/deaths_berlin.csv", "temperature_deaths", "ber_deaths"),
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
-    
-    import_temperature_csv_to_mongodb = PythonOperator(
-                task_id='import_temperature_to_mongodb',
-                dag=dag,
-                python_callable=import_temperature_csv_to_mongodb(27017, "./staging/GlobalLandTemperaturesByMajorCity.csv", "temperature_deaths", "temperature"),
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
+fr_get_death_files_list = PythonOperator(
+            task_id='fr_get_death_files_list',
+            dag=dag,
+            python_callable=fr_get_death_files_list,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
 
-    fr_get_death_files_list = PythonOperator(
-                task_id='fr_get_death_files_list',
-                dag=dag,
-                python_callable=fr_get_death_files_list,
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
-    
-    fr_get_all_death_files = PythonOperator(
-                task_id='fr_get_all_death_files',
-                dag=dag,
-                python_callable=fr_get_all_death_files,
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
-    
-    fr_collect_specific_location_data = PythonOperator(
-                task_id='fr_collect_specific_location_data',
-                dag=dag,
-                python_callable=fr_collect_specific_location_data,
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
-    
-    fr_death_data_to_csv = PythonOperator(
-                task_id='fr_death_data_to_csv',
-                dag=dag,
-                python_callable=fr_death_data_to_csv,
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
+fr_get_all_death_files = PythonOperator(
+            task_id='fr_get_all_death_files',
+            dag=dag,
+            python_callable=fr_get_all_death_files,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
 
-    import_fr_deaths_csv_to_mongodb = PythonOperator(
-                task_id='import_fr_deaths_csv_to_mongodb',
-                dag=dag,
-                python_callable=import_fr_deaths_csv_to_mongodb,
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
-    
-    wrangle_fr_death_data_in_mongodb = PythonOperator(
-                task_id='wrangle_fr_death_data_in_mongodb',
-                dag=dag,
-                python_callable=wrangle_fr_death_data_in_mongodb,
-                op_kwargs={},
-                trigger_rule='all_success',
-                depends_on_past=False,
-            )
+fr_collect_specific_location_data = PythonOperator(
+            task_id='fr_collect_specific_location_data',
+            dag=dag,
+            python_callable=fr_collect_specific_location_data,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
+
+fr_death_data_to_csv = PythonOperator(
+            task_id='fr_death_data_to_csv',
+            dag=dag,
+            python_callable=fr_death_data_to_csv,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
+
+import_fr_deaths_csv_to_mongodb = PythonOperator(
+            task_id='import_fr_deaths_csv_to_mongodb',
+            dag=dag,
+            python_callable=import_fr_deaths_csv_to_mongodb,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
+
+wrangle_fr_death_data_in_mongodb = PythonOperator(
+            task_id='wrangle_fr_death_data_in_mongodb',
+            dag=dag,
+            python_callable=wrangle_fr_death_data_in_mongodb,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
