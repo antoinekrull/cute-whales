@@ -48,7 +48,7 @@ def import_clean_temperature_data():
     #  i am not sure why this is not working correctly
     #  temperature_data.round({"AverageTemperature": 2})
 
-    start_date = pd.to_datetime("1900-01-01")
+    start_date = pd.to_datetime("1980-01-01")
     #  drops all entries before 'start_date'
     temperature_data = temperature_data[temperature_data["datetime"] >= start_date]
 
