@@ -52,6 +52,7 @@ flowchart LR
     t5((21°-25°)) -- Paris, May, 2019 --> d4((158)) 
     t3((11°-15°)) -- Paris, October, 2016 --> d3((87))
     t4((16°-20°)) -- Berlin, June, 2017 --> d2((57))
+    t6((26°-30°)) 
 ```
 
 ## Data sources
@@ -96,13 +97,13 @@ For the production phase we start by saving the data from our postgres-table to 
 - Include image of grapha-database from neo4j (?)
 
 #### Queries
-Query question 1:
-MATCH (t:Temperature)-[r:IN_REGION]->(d:Deaths)
-RETURN t.value, d.value, r.region, r.year, r.month
-ORDER BY d.value DESC;
+Query question 1: \
+MATCH (t:Temperature)-[r:IN_REGION]->(d:Deaths) \
+RETURN t.value, d.value, r.region, r.year, r.month \
+ORDER BY d.value DESC; 
 
-Query question 2:
-MATCH (t:Temperature)<-[r:IN_REGION]-(d:Deaths)
-WHERE d.total_deaths > threshold // specify the threshold for extreme events
-RETURN t.value, d.value, r.region, r.year, r.month
-ORDER BY d.total_deaths DESC;
+Query question 2: \
+MATCH (t:Temperature)<-[r:IN_REGION]-(d:Deaths) \
+WHERE d.total_deaths > threshold // threshold = 32° \
+RETURN t.value, d.value, r.region, r.year, r.month \
+ORDER BY d.total_deaths DESC; 
