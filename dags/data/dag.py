@@ -182,11 +182,10 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
-    my_col = db[collection_name]
-    my_col.drop()
-
     db = client[db_name]
+
     collection = db[collection_name]
+    collection.drop()
 
     with open(csv_file, 'r') as file:
         # skip row with column titles
@@ -206,11 +205,10 @@ def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, 
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
-    my_col = db[collection_staging]
-    my_col.drop()
-
     db = client[db_name]
-    stag_coll = db[collection_staging]
+    stag_col = db[collection_staging]
+    stag_col.drop()
+
     ing_coll = db.get_collection(collection_ingestion)
 
     # counts the number of people who died in each month of each year
