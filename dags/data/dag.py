@@ -341,3 +341,8 @@ wrangle_fr_death_data_in_mongodb = PythonOperator(
             trigger_rule='all_success',
             depends_on_past=False,
         )
+
+start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list]
+get_ber_death_data >> import_ber_death_data_to_mongodb
+get_temperature_data >> import_temperature_csv_to_mongodb
+fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
