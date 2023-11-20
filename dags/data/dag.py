@@ -116,11 +116,10 @@ def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collectio
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
-    my_col = db[collection_name]
-    my_col.drop()
-
     db = client[db_name]
+
     collection = db[collection_name]
+    collection.drop()
 
     with open(csv_file, 'r') as file:
         lines = file.readlines()
