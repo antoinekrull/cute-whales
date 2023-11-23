@@ -79,35 +79,35 @@ def import_ber_deaths_csv_to_mongodb(**kwargs):
                 "month": get_number_of_month(split_row[1]),
                 "region": "Berlin",
                 #  drops the "\n" at the end of the total number
-                "total deaths": split_row[4][:-2]
+                "total deaths": str(split_row[4][:-2])
             }
             collection.insert_one(document)
     
 def get_number_of_month(month):
     if month == "Januar" or month == "01":
-        return 1
+        return "01"
     elif month == "Februar" or month == "02":
-        return 2
+        return "02"
     elif month == "März" or month == "03":
-        return 3
+        return "03"
     elif month == "April" or month == "04":
-        return 4
+        return "04"
     elif month == "Mai" or month == "05":
-        return 5
+        return "05"
     elif month == "Juni" or month == "06":
-        return 6
+        return "06"
     elif month == "Juli" or month == "07":
-        return 7
+        return "07"
     elif month == "August" or month == "08":
-        return 8
+        return "08"
     elif month == "September" or month == "09":
-        return 9
+        return "09"
     elif month == "Oktober" or month == "10":
-        return 10
+        return "10"
     elif month == "November" or month == "11":
-        return 11
+        return "11"
     else:
-        return 12
+        return "12"
 
 def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
@@ -155,7 +155,7 @@ def fr_get_all_death_files():
                 except(UnicodeDecodeError):
                         print(f"In file {i} occured an decoding error")
 
-def fr_collect_specific_location_data(PARIS_GEOGRAPHIC_CODE):
+def fr_collect_specific_location_data():
     import glob
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
@@ -207,7 +207,7 @@ def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, 
     stag_col = db[collection_staging]
     stag_col.drop()
 
-    ing_coll = db.get_collection(collection_ingestion)
+    ing_coll = db[collection_ingestion]
 
     # counts the number of people who died in each month of each year
     pipeline = [
@@ -239,8 +239,25 @@ def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, 
             "region" : "Paris",
             "total deaths" :  r['totalDeaths']
         }
-        stag_coll.insert_one(document)
+        stag_col.insert_one(document)
         
+def merge_death(mongo_port, db_name, ber_coll, par_coll, merge_coll):
+    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongo_port}")
+    #  here to ensure that each time a fresh collection is created in the container
+    #  the purpose of that is to make safe that during development new changes can be
+    #  seen straight away
+    db = client[db_name]
+    ber_col = db[ber_coll]
+    fr_col = db[par_coll]
+    merge_col = db[merge_coll]
+    merge_col.drop()
+
+    ber_res = ber_col.find()
+    for r in ber_res:
+        merge_col.insert_one(r)
+    fr_res = fr_col.find()
+    for r in fr_res:
+        merge_col.insert_one(r)
 
 #  operator definition
 start = DummyOperator(
@@ -324,7 +341,7 @@ ximport_fr_deaths_csv_to_mongodb = PythonOperator(
             task_id='import_fr_deaths_csv_to_mongodb',
             dag=dag,
             python_callable=import_fr_deaths_csv_to_mongodb,
-            op_kwargs={},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "fr_deaths", 'csv_file': "./staging/ParisDeathData.csv"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
@@ -333,12 +350,23 @@ xwrangle_fr_death_data_in_mongodb = PythonOperator(
             task_id='wrangle_fr_death_data_in_mongodb',
             dag=dag,
             python_callable=wrangle_fr_death_data_in_mongodb,
-            op_kwargs={},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_ingestion': "fr_deaths", 'collection_staging': "fr_deaths_clean"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list]
+xmerge_death = PythonOperator(
+            task_id='merge_death',
+            dag=dag,
+            python_callable=merge_death,
+            op_kwargs={'mongo_port': 27017, 'db_name':  "temperature_deaths", 'ber_coll' : "ber_deaths", 'par_coll' : "fr_deaths", 'merge_coll' : "deaths"},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
+
+start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> ximport_temperature_csv_to_mongodb
 xfr_get_death_files_list >> xfr_get_all_death_files >> xfr_collect_specific_location_data >> xfr_death_data_to_csv >> ximport_fr_deaths_csv_to_mongodb >> xwrangle_fr_death_data_in_mongodb
+import_ber_death_data_to_mongodb >> xmerge_death
+xwrangle_fr_death_data_in_mongodb >> xmerge_death
