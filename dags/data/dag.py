@@ -61,12 +61,7 @@ def ber_import_clean_death_data():
 def import_ber_deaths_csv_to_mongodb(**kwargs):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongodb_port']}")
 
-    #  here to ensure that each time a fresh collection is created in the container
-    #  the purpose of that is to make safe that during development new changes can be
-    #  seen straight away
-    collection.drop()
     db = client[kwargs['db_name']]
-
     collection = db[kwargs['collection_name']]
 
     with open(kwargs['csv_file'], 'r') as file:
@@ -112,12 +107,7 @@ def get_number_of_month(month):
 def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
 
-    #  here to ensure that each time a fresh collection is created in the container
-    #  the purpose of that is to make safe that during development new changes can be
-    #  seen straight away
-    collection.drop()
     db = client[db_name]
-
     collection = db[collection_name]
 
     with open(csv_file, 'r') as file:
@@ -177,12 +167,7 @@ def fr_death_data_to_csv():
 def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
 
-    #  here to ensure that each time a fresh collection is created in the container
-    #  the purpose of that is to make safe that during development new changes can be
-    #  seen straight away
-    collection.drop()
     db = client[db_name]
-
     collection = db[collection_name]
 
     with open(csv_file, 'r') as file:
@@ -198,16 +183,12 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
             }
             collection.insert_one(document)
 
-def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, collection_staging):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongo_port}")
-    #  here to ensure that each time a fresh collection is created in the container
-    #  the purpose of that is to make safe that during development new changes can be
-    #  seen straight away
-    stag_col.drop()
-    db = client[db_name]
-    stag_col = db[collection_staging]
+def wrangle_fr_death_data_in_mongodb(**kwargs):
+    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
 
-    ing_coll = db[collection_ingestion]
+    db = client[kwargs['db_name']]
+    stag_col = db[kwargs['collection_staging']]
+    ing_coll = db[kwargs['collection_ingestion']]
 
     # counts the number of people who died in each month of each year
     pipeline = [
@@ -241,16 +222,13 @@ def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, 
         }
         stag_col.insert_one(document)
         
-def merge_death(mongo_port, db_name, ber_coll, par_coll, merge_coll):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongo_port}")
-    #  here to ensure that each time a fresh collection is created in the container
-    #  the purpose of that is to make safe that during development new changes can be
-    #  seen straight away
-    merge_coll.drop()
-    db = client[db_name]
-    ber_col = db[ber_coll]
-    fr_col = db[par_coll]
-    merge_col = db[merge_coll]
+def merge_death(**kwargs):
+    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+
+    db = client[kwargs['db_name']]
+    ber_col = db[kwargs['ber_coll']]
+    fr_col = db[kwargs['par_coll']]
+    merge_col = db[kwargs['merge_coll']]
 
     ber_res = ber_col.find()
     for r in ber_res:
