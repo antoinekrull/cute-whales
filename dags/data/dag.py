@@ -64,10 +64,10 @@ def import_ber_deaths_csv_to_mongodb(**kwargs):
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
+    collection.drop()
     db = client[kwargs['db_name']]
 
     collection = db[kwargs['collection_name']]
-    collection.drop()
 
     with open(kwargs['csv_file'], 'r') as file:
         lines = file.readlines()
@@ -115,10 +115,10 @@ def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collectio
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
+    collection.drop()
     db = client[db_name]
 
     collection = db[collection_name]
-    collection.drop()
 
     with open(csv_file, 'r') as file:
         lines = file.readlines()
@@ -159,7 +159,7 @@ def fr_collect_specific_location_data():
     import glob
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
-    for f in files:
+    for _ in files:
         with open(f'{FR_DEATH_INGESTION_DATA_PATH}f', 'r') as f2:
             for line in f2:
                 death_location = line[162:167]
@@ -180,10 +180,10 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
+    collection.drop()
     db = client[db_name]
 
     collection = db[collection_name]
-    collection.drop()
 
     with open(csv_file, 'r') as file:
         # skip row with column titles
@@ -203,9 +203,9 @@ def wrangle_fr_death_data_in_mongodb(mongo_port, db_name, collection_ingestion, 
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
+    stag_col.drop()
     db = client[db_name]
     stag_col = db[collection_staging]
-    stag_col.drop()
 
     ing_coll = db[collection_ingestion]
 
@@ -246,11 +246,11 @@ def merge_death(mongo_port, db_name, ber_coll, par_coll, merge_coll):
     #  here to ensure that each time a fresh collection is created in the container
     #  the purpose of that is to make safe that during development new changes can be
     #  seen straight away
+    merge_coll.drop()
     db = client[db_name]
     ber_col = db[ber_coll]
     fr_col = db[par_coll]
     merge_col = db[merge_coll]
-    merge_col.drop()
 
     ber_res = ber_col.find()
     for r in ber_res:
