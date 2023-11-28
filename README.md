@@ -1,3 +1,14 @@
+# TODOS
+- [x] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
+- [ ] **A**: finish all the operators in the dag
+- [x] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
+- [ ] **D**: wrangle the french data, count the number of names in given moths of given years. Format: (year, month, region, total deaths)
+- [ ] merge deaths datasets to one death collection
+- [ ] merge death data with temperature data. Format: (year, month (int), region, temperature, total deaths)
+- [ ] save data to postgres on format: (year, month (int), region, temperature, total deaths)
+- [ ] **Everybody**: Make presentation slides (each person make slides bout the things they have coded)
+- [ ] **S**: Fix the airflow broken DAG error
+
 # cute-whales
 A project for the data engneering class at INSA Lyon.
 
@@ -72,7 +83,7 @@ This dataset contains information about XXX in a .csv-file an is structured with
 - Include visualization of the data (?)
 
 ## Data Pipeline Design
-- figure here
+![alt text](/Pipeline.png)
 
 ### Ingestion (Pipeline 1):
 Ingest city temperature data from sources.
@@ -92,6 +103,7 @@ Persist the combined data into a staging zone for durability.
 
 - Include image of DAG (?)
 - Include image of postgres database and how data is saved in table
+- Include a STAR-diagram of the postgres
 
 ### Production Analytics (Pipeline 3):
 For the production phase we start by saving the data from our postgres-table to neo4j in order to simplify the data as well as query the graph-database in order to answer our questions. In the graph databse the nodes will be City nodes and Temperature-nodes, where the relation between the nodes are the number of deaths in a given month of a given year corresponding to the temperature of this month in this year and the region this temperature was recorded. The databse look like this:
