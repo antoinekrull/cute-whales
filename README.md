@@ -51,8 +51,9 @@ flowchart LR
     t4((16°-20°)) --Berlin, May, 2018 --> d4((158))
     t5((21°-25°)) -- Paris, May, 2019 --> d4((158)) 
     t3((11°-15°)) -- Paris, October, 2016 --> d3((87))
-    t4((16°-20°)) -- Berlin, June, 2017 --> d2((57))
-    t6((26°-30°)) 
+    t4((16°-20°)) -- Berlin, June, 2017 --> d5((27))
+    t6((26°-30°)) -- Paris, December, 2022 --> d6((1))
+    t7((31°-35°)) -- Paris, July, 2019 --> d1((117))
 ```
 
 ## Data sources
