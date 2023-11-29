@@ -241,6 +241,7 @@ def merge_deaths_and_temperatures(**kwargs):
 
     db = client["temperature_deaths"]
     deaths = db["deaths"]
+    temp_and_death = db["temp_and_death"]
 
     pipeline = [
         {
@@ -274,7 +275,17 @@ def merge_deaths_and_temperatures(**kwargs):
             }
         }
     ]
-    db.deaths.aggregate(pipeline)
+
+    result = list(deaths.aggregate(pipeline))
+    for r in result:
+            document = {
+                "year" : r['year'],
+                "month" : r['month'],
+                "region" : r['region'],
+                "total deaths" :  r['totalDeaths'],
+                "temperature" : r['temperature']
+            }
+            temp_and_death.insert_one(document)
 
 #  operator definition
 start = DummyOperator(
