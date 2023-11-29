@@ -231,11 +231,50 @@ def merge_death(**kwargs):
     merge_col = db[kwargs['merge_coll']]
 
     ber_res = ber_col.find()
-    for r in ber_res:
-        merge_col.insert_one(r)
     fr_res = fr_col.find()
-    for r in fr_res:
-        merge_col.insert_one(r)
+
+    merge_col.insert_many(list(ber_res))
+    merge_col.insert_many(list(fr_res))
+
+def merge_deaths_and_temperatures(**kwargs):
+    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+
+    db = client["temperature_deaths"]
+    deaths = db["deaths"]
+
+    pipeline = [
+        {
+            '$lookup': {
+                'from': "temperature",
+                'localField': "year",
+                'foreignField': "year",
+                'as': "temperatureData"
+            }
+        },
+        {
+            '$unwind': {
+                'path': "$temperatureData",
+                'preserveNullAndEmptyArrays': True
+            }
+        },
+        {
+            '$project': {
+                'year': 1,
+                'month': 1,
+                'region': 1,
+                'totalDeaths': 1,
+                'temperature': "$temperatureData.temperature"
+            }
+        },
+        {
+            '$merge': {
+                'into': "mergedCollection",
+                'whenMatched': "merge",
+                'whenNotMatched': "insert"
+            }
+        }
+    ]
+    db.deaths.aggregate(pipeline)
 
 #  operator definition
 start = DummyOperator(
@@ -342,7 +381,7 @@ xmerge_death = PythonOperator(
             depends_on_past=False,
         )
 
-start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
+# start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> ximport_temperature_csv_to_mongodb
 xfr_get_death_files_list >> xfr_get_all_death_files >> xfr_collect_specific_location_data >> xfr_death_data_to_csv >> ximport_fr_deaths_csv_to_mongodb >> xwrangle_fr_death_data_in_mongodb
