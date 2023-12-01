@@ -40,7 +40,7 @@ dag = DAG(
 def import_clean_temperature_data():
     temperature_data = pd.read_json(TEMPERATURE_DATASET_PATH)
     temperature_data["dt"] = pd.to_datetime(temperature_data["dt"])
-    temperature_data = temperature_data.drop(columns={"AverageTemperatureUncertainty"})
+    temperature_data = temperature_data.drop(columns={"AverageTemperatureUncertainty", "Latitude", "Longitude", "Country"})
     temperature_data = temperature_data.rename(columns={"dt": "datetime"})
     #  replaces empty AT fields with 0
     #  TODO: think of smarter value
@@ -52,7 +52,11 @@ def import_clean_temperature_data():
     #  drops all entries before 'start_date'
     temperature_data = temperature_data[temperature_data["datetime"] >= start_date]
 
-    temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
+    #  drops all entries that are not Berlin or Paris
+    values_to_keep = ["Berlin", "Paris"]
+    temperature_data = temperature_data[temperature_data["City"].isin(values_to_keep)]
+
+    temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1", index=False)
 
 def ber_import_clean_death_data():
     death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH)
