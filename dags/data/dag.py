@@ -123,7 +123,8 @@ def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collectio
                 "year": split_row[0][:4],
                 #  returns the month chars from the datetime string
                 "month": split_row[0][5:7],
-                "region": split_row[2],
+                #  drops the "\n" at the end of region
+                "region": split_row[2][:-1],
                 "temperature": split_row[1],
             }
             collection.insert_one(document)
@@ -182,7 +183,7 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
             document = {
                 "Name": split_row[0],
                 "Year": split_row[1][:4],
-                "Month": split_row[1][4:6],
+                "Month": split_row[2],
                 "Location": "Paris",
             }
             collection.insert_one(document)
@@ -273,7 +274,7 @@ def merge_deaths_and_temperatures(**kwargs):
         },
         {
             '$merge': {
-                'into': "mergedCollection",
+                'into': "temp_and_death",
                 'whenMatched': "merge",
                 'whenNotMatched': "insert"
             }
@@ -290,6 +291,25 @@ def merge_deaths_and_temperatures(**kwargs):
                 "temperature" : r['temperature']
             }
             temp_and_death.insert_one(document)
+
+    def merge_deaths_and_temperatures():
+        client = MongoClient("mongodb://127.0.0.1:27017")
+
+        db_deaths = client["death_db"]
+        db_temp = client["temperature_db"]
+
+        deaths = db_deaths["deaths"]
+        temperature = db_temp["temperature"]
+        
+        death_data = pd.DataFrame(list(deaths.find())).drop('_id', axis=1)
+        temp_data = pd.DataFrame(list(temperature.find())).drop('_id', axis=1)
+
+        merged_df = pd.merge(death_data, temp_data, on=["year", "month", "region"], how="inner")
+        
+        if "deaths_and_temperature" not in db_deaths.list_collection_names():
+            db_deaths.create_collection("deaths_and_temperature")
+        
+        db_deaths["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
 
 #  operator definition
 start = DummyOperator(
