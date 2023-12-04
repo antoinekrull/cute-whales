@@ -129,6 +129,7 @@ Similar to the previous task, this calculates the correlation coefficient, but w
 
 #### Data visualization
 - TODO: fullfør avsnitt \
+
 EITHER:
 Scatter Plots: Show the relationship between two continuous variables.
 In the scatter plot: Each point represents a data entry with the x-coordinate being the temperature and the y-coordinate being the total deaths. The regression line provides a visual representation of the correlation trend.
