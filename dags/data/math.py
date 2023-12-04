@@ -6,6 +6,7 @@ from airflow.operators.empty import EmptyOperator
 import psycopg2
 from py2neo import Graph
 from airflow.models import Variable
+import math
 
 default_args_dict = {
     "start_date": datetime.datetime(2023, 11, 28, 0, 0, 0),
@@ -132,63 +133,48 @@ def calculate_correlation_one():
     region = Variable.get("correlation_region", default_var="default_region")
 
     connection_params = {
-        'user': 'airflow',
-        'password': 'airflow',
-        'host': 'postgres',
+        'user': 'postgres',
+        'password': 'postgres',
+        'host': 'localhost',
         'port': '5432',
         'database': 'postgres',
     }
+    # Connect to the postgres databse
+    connection = psycopg2.connect(**connection_params)
+    cursor = connection.cursor()
 
-    # Construct the SQL code with placeholders for month and region
-    sql_code = """
-    WITH 
-    x_sum AS (SELECT SUM(temperature) FROM death_temperature_table WHERE month = %s AND region = %s),
-    y_sum AS (SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = %s AND region = %s),
+    cursor.execute('''SELECT SUM(temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    x_sum = cursor.fetchone()[0]
 
-    x_squared_sum AS (SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = %s AND region = %s),
-    y_squared_sum AS (SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = %s AND region = %s),
+    cursor.execute('''SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    y_sum = cursor.fetchone()[0]
 
-    count_x AS (SELECT COUNT(*) FROM death_temperature_table WHERE month = %s AND region = %s),
+    cursor.execute('''SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    x_squared_sum = cursor.fetchone()[0]
 
-    sum_xy_product AS (SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = %s AND region = %s),
+    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    y_squared_sum = cursor.fetchone()[0]
 
-    correlation_coefficient AS (
-     SELECT 
-        (count_x * sum_xy_product - (x_sum * y_sum)) / 
-        SQRT((count_x * x_squared_sum - y_squared_sum) * (count_x * y_squared_sum - y_squared_sum)) AS r
-     FROM 
-        x_sum, 
-        y_sum, 
-        x_squared_sum, 
-        y_squared_sum, 
-        count_x, 
-        sum_xy_product
-    )
+    cursor.execute('''SELECT COUNT(*) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    count_x = cursor.fetchone()[0]
 
-    SELECT r FROM correlation_coefficient;
-    """
-
-    # Connect to the PostgreSQL database
+    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    sum_xy_product = cursor.fetchone()[0]
+   
+   # math function for the correlation
     try:
-        connection = psycopg2.connect(**connection_params)
-        cursor = connection.cursor()
+        correlation_coefficient = (count_x * sum_xy_product - (x_sum * y_sum)) / math.sqrt((count_x * x_squared_sum - x_sum * x_sum) * (count_x * y_squared_sum - y_sum * y_sum))
+    # if denominator is zero, error occurs
+    except ZeroDivisionError:
+        print("Error: Division by zero. This could be due to the dataset being too small or no data points meeting the threshold.")
+        correlation_coefficient = None
 
-        # Execute the SQL query with the provided month and region values
-        cursor.execute(sql_code, (month, region))
-        
-        # Fetch the result
-        result = cursor.fetchone()[0]
-
-        # Commit and close the connection
-        connection.commit()
-        cursor.close()
-        connection.close()
-
-        return result
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+    # Commit and close the connection
+    connection.commit()
+    cursor.close()
+    connection.close()
+    
+    return correlation_coefficient
 
 correlation_one_node = PythonOperator(
     task_id="correlation_temperature_death",
@@ -201,66 +187,51 @@ def calculate_correlation_two():
     # Retrieve user-defined variables for month and region
     month = Variable.get("correlation_month", default_var="default_month")
     region = Variable.get("correlation_region", default_var="default_region")
-    temperature = Variable.get("threshold_temperature", default_var="default_threshold")
+    threshold = Variable.get("threshold_temperature", default_var="default_threshold")
 
     connection_params = {
-        'user': 'airflow',
-        'password': 'airflow',
-        'host': 'postgres',
+        'user': 'postgres',
+        'password': 'postgres',
+        'host': 'localhost',
         'port': '5432',
         'database': 'postgres',
     }
+    # Connect to the postgres database
+    connection = psycopg2.connect(**connection_params)
+    cursor = connection.cursor()
 
-    # Construct the SQL code with placeholders for month and region
-    sql_code = """
-    WITH 
-x_sum AS (SELECT SUM(temperature) FROM death_temperature_table WHERE month = %s AND region = %s AND temperature > %s),
-y_sum AS (SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = %s AND region = %s),
+    cursor.execute('''SELECT SUM(temperature) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    x_sum = cursor.fetchone()[0]
 
-x_squared_sum AS (SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = %s AND region = %s AND temperature > %s),
-y_squared_sum AS (SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = %s AND region = %s),
+    cursor.execute('''SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    y_sum = cursor.fetchone()[0]
 
-count_x AS (SELECT COUNT(*) FROM death_temperature_table WHERE month = %s AND region = %s AND temperature > %s),
+    cursor.execute('''SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    x_squared_sum = cursor.fetchone()[0]
 
-sum_xy_product AS (SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = %s AND region = %s AND temperature > %s),
+    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    y_squared_sum = cursor.fetchone()[0]
 
-correlation_coefficient AS (
- SELECT 
-    (count_x * sum_xy_product - (x_sum * y_sum)) / 
-    SQRT((count_x * x_squared_sum - y_squared_sum) * (count_x * y_squared_sum - y_squared_sum)) AS r
- FROM 
-    x_sum, 
-    y_sum, 
-    x_squared_sum, 
-    y_squared_sum, 
-    count_x, 
-    sum_xy_product
-)
+    cursor.execute('''SELECT COUNT(*) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    count_x = cursor.fetchone()[0]
 
-SELECT r FROM correlation_coefficient;
-"""
-
-    # Connect to the PostgreSQL database
+    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    sum_xy_product = cursor.fetchone()[0]
+   
+    # math function for the correlation
     try:
-        connection = psycopg2.connect(**connection_params)
-        cursor = connection.cursor()
+        correlation_coefficient = (count_x * sum_xy_product - (x_sum * y_sum)) / math.sqrt((count_x * x_squared_sum - x_sum * x_sum) * (count_x * y_squared_sum - y_sum * y_sum))
+    # if denominator is zero, error occurs
+    except ZeroDivisionError:
+        print("Error: Division by zero. This could be due to the dataset being too small or no data points meeting the threshold.")
+        correlation_coefficient = None
 
-        # Execute the SQL query with the provided month and region values
-        cursor.execute(sql_code, (month, region, temperature))
-        
-        # Fetch the result
-        result = cursor.fetchone()[0]
-
-        # Commit and close the connection
-        connection.commit()
-        cursor.close()
-        connection.close()
-
-        return result
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+    # Commit and close the connection
+    connection.commit()
+    cursor.close()
+    connection.close()
+    
+    return correlation_coefficient
 
 correlation_two_node = PythonOperator(
     task_id="correlation_temperature_death_threshold",
