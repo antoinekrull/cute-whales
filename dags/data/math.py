@@ -29,7 +29,7 @@ start_node = EmptyOperator(
 )
     
 # Function to execute SQL query and insert data into Neo4j
-def import_data_to_neo4j():
+def visualization():
     # Define PostgreSQL connection parameters
     postgres_params = {
         'user': 'airflow',
@@ -42,89 +42,25 @@ def import_data_to_neo4j():
     sql_query = "SELECT year, month, total_deaths, region, temperature FROM death_temperature_table"
 
     # Connect to PostgreSQL database
-    try:
-        postgres_connection = psycopg2.connect(**postgres_params)
-        postgres_cursor = postgres_connection.cursor()
+    postgres_connection = psycopg2.connect(**postgres_params)
+    postgres_cursor = postgres_connection.cursor()
 
-        # Execute SQL query
-        postgres_cursor.execute(sql_query)
+    # Execute SQL query
+    postgres_cursor.execute(sql_query)
 
-        # Fetch all rows from the result set
-        rows = postgres_cursor.fetchall()
+    # Fetch all rows from the result set
+    rows = postgres_cursor.fetchall()
 
-        # Close PostgreSQL cursor and connection
-        postgres_cursor.close()
-        postgres_connection.close()
+    # Close PostgreSQL cursor and connection
+    postgres_cursor.close()
+    postgres_connection.close()
 
-        # Connect to Neo4j database
-        neo4j_driver = Graph(f"bolt://localhost:7687")
-        neo4j_session = neo4j_driver.session()
-
-        # Create nodes and relationships in Neo4j
-        for row in rows:
-            year, month, total_deaths, region, temperature = row
-
-            # Create or retrieve nodes
-            neo4j_session.run(
-                """
-                MERGE (y:Year {value: $year})
-                MERGE (m:Month {value: $month})
-                MERGE (td:TotalDeaths {value: $total_deaths})
-                MERGE (r:Region {value: $region})
-                MERGE (t:Temperature {value: $temperature})
-                """,
-                year=year, month=month, total_deaths=total_deaths, region=region, temperature=temperature
-            )
-
-            # Create relationships
-            neo4j_session.run(
-                """
-                MATCH (t:Temperature {value: $temperature})
-                MATCH (m:Month {value: $month})
-                CREATE (t)-[:IN_MONTH]->(m)
-                """,
-                temperature=temperature, month=month
-            )
-
-            neo4j_session.run(
-                """
-                MATCH (t:Temperature {value: $temperature})
-                MATCH (r:Region {value: $region})
-                CREATE (t)-[:IN_REGION]->(r)
-                """,
-                temperature=temperature, region=region
-            )
-
-            neo4j_session.run(
-                """
-                MATCH (td:TotalDeaths {value: $total_deaths})
-                MATCH (y:Year {value: $year})
-                CREATE (td)-[:OCCURRED_IN]->(y)
-                """,
-                total_deaths=total_deaths, year=year
-            )
-
-            neo4j_session.run(
-                """
-                MATCH (y:Year {value: $year})
-                MATCH (m:Month {value: $month})
-                CREATE (y)-[:IN_YEAR]->(m)
-                """,
-                year=year, month=month
-            )
-
-        # Close Neo4j session and driver
-        neo4j_session.close()
-        neo4j_driver.close()
-
-    except Exception as e:
-        print(f"Error: {e}")
 
 graph_database_node = PythonOperator(
-    task_id="postgres_to_neo4j",
+    task_id="visualization",
     dag=query_DAG,
     trigger_rule="all_success",
-    python_callable=import_data_to_neo4j,
+    python_callable=visualization,
 )
 
 def calculate_correlation_one():

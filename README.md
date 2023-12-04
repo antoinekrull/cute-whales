@@ -106,17 +106,32 @@ Persist the combined data into a staging zone for durability.
 - Include a STAR-diagram of the postgres
 
 ### Production Analytics (Pipeline 3):
-For the production phase we start by saving the data from our postgres-table to neo4j in order to simplify the data as well as query the graph-database in order to answer our questions. In the graph databse the nodes will be City nodes and Temperature-nodes, where the relation between the nodes are the number of deaths in a given month of a given year corresponding to the temperature of this month in this year and the region this temperature was recorded. The databse look like this:
-- Include image of grapha-database from neo4j (?)
+For the production phase of the data pipeline we both visualize the data in the postgres-database, as well as query the database in order to caluculate the correlation coeficient between the temperature and the total deaths in a region, for a spesific month. 
+
+- TODO: legge til bilde (?)
 
 #### Queries
-Query question 1: \
-MATCH (t:Temperature)-[r:IN_REGION]->(d:Deaths) \
-RETURN t.value, d.value, r.region, r.year, r.month \
-ORDER BY d.value DESC; 
+To look at the correlation coefficient between the temperature and the total deaths in a region and given month we query the postgres-database. The formula represents the correlation coefficient, denoted as r, which is a measure of the strength and direction of the relationship between two variables:
 
-Query question 2: \
-MATCH (t:Temperature)<-[r:IN_REGION]-(d:Deaths) \
-WHERE d.total_deaths > threshold // threshold = 32° \
-RETURN t.value, d.value, r.region, r.year, r.month \
-ORDER BY d.total_deaths DESC; 
+$$r=\frac{n\sum xy - \sum x \sum y}{\sqrt{((n\sum x^2) - (\sum x)^2) * ((n\sum y^2) - (\sum y)^2)}}$$
+
+n → number of observations, x and y → temperature-variable and death-variable, Σ → summation of a series.
+The value of r ranges from -1 to 1. A value of -1 indicates a perfect negative relationship, a value of 1 indicates a perfect positive relationship, and a value of 0 indicates no relationship.
+
+Question 1: \
+This task calculates the correlation coefficient between temperature and total deaths for a specified month and region. The code retrieves user-defined variables for month and region, performs SQL queries on the PostgreSQL database, and computes the correlation using a mathematical formula.
+
+- TODO: legge til visualisert eksempel
+
+Question 2: \
+Similar to the previous task, this calculates the correlation coefficient, but with an additional condition based on a temperature threshold. It considers only data points where the temperature is greater than or equal to the specified threshold. The threshold can vary, but for extreme heat the value will be 32°.
+
+
+#### Data visualization
+- TODO: fullfør avsnitt \
+EITHER:
+Scatter Plots: Show the relationship between two continuous variables.
+In the scatter plot: Each point represents a data entry with the x-coordinate being the temperature and the y-coordinate being the total deaths. The regression line provides a visual representation of the correlation trend.
+OR:
+Heat map: The heatmap will show the correlation coefficients between all pairs of variables in your dataset.
+In the heatmap: The color intensity represents the strength and direction of the correlation. Positive correlations are shown in warmer colors (e.g., red), and negative correlations are in cooler colors (e.g., blue). Values close to 1 or -1 indicate strong correlations, while values close to 0 suggest a weaker correlation.
