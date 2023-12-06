@@ -319,10 +319,10 @@ def merge_deaths_and_temperatures(**kwargs):
         data = list(temp_death_coll.find())
         
         for document in data:
-            query += f"INSERT INTO deaths_and_temperature ('{document['year']}',
-                                                            '{document['month']}',
-                                                            '{document['region']}',
-                                                            '{document['total deaths']}',
+            query += f"INSERT INTO deaths_and_temperature ('{document['year']}',\
+                                                            '{document['month']}',\
+                                                            '{document['region']}',\
+                                                            '{document['total deaths']}',\
                                                             '{document['temperature']}') ON CONFLICT DO NOTHING;\n"
         
         #  TODO: dont forget to delete afterwards
@@ -452,8 +452,8 @@ store_death_and_temp_in_postgres = PostgresOperator(
     )
 
 # start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
-get_ber_death_data >> import_ber_death_data_to_mongodb
-get_temperature_data >> ximport_temperature_csv_to_mongodb
-xfr_get_death_files_list >> xfr_get_all_death_files >> xfr_collect_specific_location_data >> xfr_death_data_to_csv >> ximport_fr_deaths_csv_to_mongodb >> xwrangle_fr_death_data_in_mongodb
-import_ber_death_data_to_mongodb >> xmerge_death
-xwrangle_fr_death_data_in_mongodb >> xmerge_death
+# get_ber_death_data >> import_ber_death_data_to_mongodb
+# get_temperature_data >> ximport_temperature_csv_to_mongodb
+# xfr_get_death_files_list >> xfr_get_all_death_files >> xfr_collect_specific_location_data >> xfr_death_data_to_csv >> ximport_fr_deaths_csv_to_mongodb >> xwrangle_fr_death_data_in_mongodb
+#[xwrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb] >> xmerge_death
+#  xwrangle_fr_death_data_in_mongodb >> xmerge_death
