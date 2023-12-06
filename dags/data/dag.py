@@ -311,6 +311,22 @@ def merge_deaths_and_temperatures(**kwargs):
         
         db_deaths["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
 
+    def create_postgres_insert_query():
+        client = MongoClient("mongodb://127.0.0.1:27017")
+        db_deaths = client["death_db"]
+        temp_death_coll = db_deaths["deaths_and_temperature"]
+
+        data = list(temp_death_coll.find())
+        
+        for document in data:
+            query += f"INSERT INTO deaths_and_temperature ('{document['year']}',
+                                                            '{document['month']}',
+                                                            '{document['region']}',
+                                                            '{document['total deaths']}',
+                                                            '{document['temperature']}') ON CONFLICT DO NOTHING;\n"
+        
+        with open("dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
+
 #  operator definition
 start = DummyOperator(
         task_id='start',
@@ -415,6 +431,15 @@ xmerge_death = PythonOperator(
             trigger_rule='all_success',
             depends_on_past=False,
         )
+
+create_death_and_temp_table = PostgresOperator(
+        task_id='create_death_and_temp_table',
+        dag=dag,
+        postgres_conn_id='postgres_default',
+        sql='sql/create_death_and_temp_table.sql',
+        trigger_rule='none_failed',
+        autocommit=True,
+    )
 
 # start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
