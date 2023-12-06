@@ -37,7 +37,7 @@ dag = DAG(
 )
 
 #  functions
-def import_clean_temperature_data():
+def _import_clean_temperature_data():
     temperature_data = pd.read_json(TEMPERATURE_DATASET_PATH)
     temperature_data["dt"] = pd.to_datetime(temperature_data["dt"])
     temperature_data = temperature_data.drop(columns={"AverageTemperatureUncertainty", "Latitude", "Longitude", "Country"})
@@ -58,11 +58,11 @@ def import_clean_temperature_data():
 
     temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1", index=False)
 
-def ber_import_clean_death_data():
+def _ber_import_clean_death_data():
     death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH)
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
-def import_ber_deaths_csv_to_mongodb(**kwargs):
+def _import_ber_deaths_csv_to_mongodb(**kwargs):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongodb_port']}")
 
     db = client[kwargs['db_name']]
@@ -108,7 +108,7 @@ def get_number_of_month(month):
     else:
         return "12"
 
-def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
+def _import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
 
     db = client[db_name]
@@ -129,14 +129,14 @@ def import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collectio
             }
             collection.insert_one(document)
             
-def fr_get_death_files_list():
+def _fr_get_death_files_list():
     import requests
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'w') as f:
         resources = requests.get(FR_DEATH_DATASET_URL).json()['resources']
         for r in resources:
             f.write(r['latest']+ '\n')
 
-def fr_get_all_death_files():
+def _fr_get_all_death_files():
     import requests
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'r') as f:
         for i, line in enumerate(f): 
@@ -150,7 +150,7 @@ def fr_get_all_death_files():
                 except(UnicodeDecodeError):
                         print(f"In file {i} occured an decoding error")
 
-def fr_collect_specific_location_data():
+def _fr_collect_specific_location_data():
     import glob
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
@@ -164,12 +164,12 @@ def fr_collect_specific_location_data():
                             death_date = line[154:162]
                             f3.write(f'{name}, {death_date}, {death_location} \n')
 
-def fr_death_data_to_csv():
+def _fr_death_data_to_csv():
     account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}', header= None)
     account.columns = ['Name', 'Date of death', 'Location of Death']
     account.to_csv(f'{FR_DEATH_CLEAN_DATA_PATH}ParisDeathData.csv', index= None)
 
-def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
+def _import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
 
     db = client[db_name]
@@ -188,7 +188,7 @@ def import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_
             }
             collection.insert_one(document)
 
-def wrangle_fr_death_data_in_mongodb(**kwargs):
+def _wrangle_fr_death_data_in_mongodb(**kwargs):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
 
     db = client[kwargs['db_name']]
@@ -227,7 +227,7 @@ def wrangle_fr_death_data_in_mongodb(**kwargs):
         }
         stag_col.insert_one(document)
         
-def merge_death(**kwargs):
+def _merge_death(**kwargs):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
 
     db = client[kwargs['db_name']]
@@ -241,7 +241,7 @@ def merge_death(**kwargs):
     merge_col.insert_many(list(ber_res))
     merge_col.insert_many(list(fr_res))
 
-def merge_deaths_and_temperatures(**kwargs):
+def _merge_deaths_and_temperatures(**kwargs):
     client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
 
     db = client["temperature_deaths"]
@@ -292,7 +292,7 @@ def merge_deaths_and_temperatures(**kwargs):
             }
             temp_and_death.insert_one(document)
 
-    def merge_deaths_and_temperatures():
+    def _merge_deaths_and_temperatures():
         client = MongoClient("mongodb://127.0.0.1:27017")
 
         db_deaths = client["death_db"]
@@ -311,7 +311,7 @@ def merge_deaths_and_temperatures(**kwargs):
         
         db_deaths["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
 
-    def create_postgres_insert_query():
+    def _create_postgres_insert_query():
         client = MongoClient("mongodb://127.0.0.1:27017")
         db_deaths = client["death_db"]
         temp_death_coll = db_deaths["deaths_and_temperature"]
@@ -337,7 +337,7 @@ start = DummyOperator(
 get_temperature_data = PythonOperator(
         task_id='get_clean_temperature',
         dag=dag,
-        python_callable=import_clean_temperature_data,
+        python_callable=_import_clean_temperature_data,
         op_kwargs={},
         trigger_rule='all_success',
         depends_on_past=False,
@@ -346,7 +346,7 @@ get_temperature_data = PythonOperator(
 get_ber_death_data = PythonOperator(
         task_id='get_ber_deaths',
         dag=dag,
-        python_callable=ber_import_clean_death_data,
+        python_callable=_ber_import_clean_death_data,
         op_kwargs={},
         trigger_rule='all_success',
         depends_on_past=False,
@@ -355,79 +355,79 @@ get_ber_death_data = PythonOperator(
 import_ber_death_data_to_mongodb = PythonOperator(
             task_id='import_ber_deaths_to_mongodb',
             dag=dag,
-            python_callable=import_ber_deaths_csv_to_mongodb,
+            python_callable=_import_ber_deaths_csv_to_mongodb,
             op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "ber_deaths", 'csv_file': "./staging/deaths_berlin.csv"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-ximport_temperature_csv_to_mongodb = PythonOperator(
+import_temperature_csv_to_mongodb = PythonOperator(
             task_id='import_temperature_to_mongodb',
             dag=dag,
-            python_callable=import_temperature_csv_to_mongodb,
+            python_callable=_import_temperature_csv_to_mongodb,
             op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "temperature", 'csv_file': "./staging/GlobalLandTemperaturesByMajorCity.csv"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-xfr_get_death_files_list = PythonOperator(
+fr_get_death_files_list = PythonOperator(
             task_id='fr_get_death_files_list',
             dag=dag,
-            python_callable=fr_get_death_files_list,
+            python_callable=_fr_get_death_files_list,
             op_kwargs={},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-xfr_get_all_death_files = PythonOperator(
+fr_get_all_death_files = PythonOperator(
             task_id='fr_get_all_death_files',
             dag=dag,
-            python_callable=fr_get_all_death_files,
+            python_callable=_fr_get_all_death_files,
             op_kwargs={},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-xfr_collect_specific_location_data = PythonOperator(
+fr_collect_specific_location_data = PythonOperator(
             task_id='fr_collect_specific_location_data',
             dag=dag,
-            python_callable=fr_collect_specific_location_data,
+            python_callable=_fr_collect_specific_location_data,
             op_kwargs={},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-xfr_death_data_to_csv = PythonOperator(
+fr_death_data_to_csv = PythonOperator(
             task_id='fr_death_data_to_csv',
             dag=dag,
-            python_callable=fr_death_data_to_csv,
+            python_callable=_fr_death_data_to_csv,
             op_kwargs={},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-ximport_fr_deaths_csv_to_mongodb = PythonOperator(
+import_fr_deaths_csv_to_mongodb = PythonOperator(
             task_id='import_fr_deaths_csv_to_mongodb',
             dag=dag,
-            python_callable=import_fr_deaths_csv_to_mongodb,
+            python_callable=_import_fr_deaths_csv_to_mongodb,
             op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "fr_deaths", 'csv_file': "./staging/ParisDeathData.csv"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-xwrangle_fr_death_data_in_mongodb = PythonOperator(
+wrangle_fr_death_data_in_mongodb = PythonOperator(
             task_id='wrangle_fr_death_data_in_mongodb',
             dag=dag,
-            python_callable=wrangle_fr_death_data_in_mongodb,
+            python_callable=_wrangle_fr_death_data_in_mongodb,
             op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_ingestion': "fr_deaths", 'collection_staging': "fr_deaths_clean"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
 
-xmerge_death = PythonOperator(
+merge_death = PythonOperator(
             task_id='merge_death',
             dag=dag,
-            python_callable=merge_death,
+            python_callable=_merge_death,
             op_kwargs={'mongo_port': 27017, 'db_name':  "temperature_deaths", 'ber_coll' : "ber_deaths", 'par_coll' : "fr_deaths", 'merge_coll' : "deaths"},
             trigger_rule='all_success',
             depends_on_past=False,
@@ -451,9 +451,9 @@ store_death_and_temp_in_postgres = PostgresOperator(
         autocommit=True,
     )
 
-# start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
-# get_ber_death_data >> import_ber_death_data_to_mongodb
-# get_temperature_data >> ximport_temperature_csv_to_mongodb
-# xfr_get_death_files_list >> xfr_get_all_death_files >> xfr_collect_specific_location_data >> xfr_death_data_to_csv >> ximport_fr_deaths_csv_to_mongodb >> xwrangle_fr_death_data_in_mongodb
-#[xwrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb] >> xmerge_death
+start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
+get_ber_death_data >> import_ber_death_data_to_mongodb
+get_temperature_data >> import_temperature_csv_to_mongodb
+fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
+[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb] >> merge_death
 #  xwrangle_fr_death_data_in_mongodb >> xmerge_death
