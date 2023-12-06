@@ -446,7 +446,7 @@ store_death_and_temp_in_postgres = PostgresOperator(
         task_id='store_death_and_temp_in_postgres',
         dag=dag,
         postgres_conn_id='postgres_default',
-        sql=f'dags/data/sql/temp/death_and_temp_insert.sql',
+        sql='sql/temp/death_and_temp_insert.sql',
         trigger_rule='none_failed',
         autocommit=True,
     )
