@@ -325,6 +325,7 @@ def merge_deaths_and_temperatures(**kwargs):
                                                             '{document['total deaths']}',
                                                             '{document['temperature']}') ON CONFLICT DO NOTHING;\n"
         
+        #  TODO: dont forget to delete afterwards
         with open("dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
 
 #  operator definition
@@ -437,6 +438,15 @@ create_death_and_temp_table = PostgresOperator(
         dag=dag,
         postgres_conn_id='postgres_default',
         sql='sql/create_death_and_temp_table.sql',
+        trigger_rule='none_failed',
+        autocommit=True,
+    )
+
+store_death_and_temp_in_postgres = PostgresOperator(
+        task_id='store_death_and_temp_in_postgres',
+        dag=dag,
+        postgres_conn_id='postgres_default',
+        sql=f'dags/data/sql/temp/death_and_temp_insert.sql',
         trigger_rule='none_failed',
         autocommit=True,
     )
