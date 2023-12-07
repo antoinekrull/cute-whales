@@ -1,12 +1,16 @@
 import datetime
 from airflow import DAG
-
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import math
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 import psycopg2
 from py2neo import Graph
 from airflow.models import Variable
 import math
+# from airflow.hooks.postgres_hook import PostgresHook
 
 default_args_dict = {
     "start_date": datetime.datetime(2023, 11, 28, 0, 0, 0),
@@ -17,7 +21,7 @@ default_args_dict = {
 }
 
 query_DAG = DAG(
-    dag_id="query_dag",
+    dag_id="dag",
     default_args=default_args_dict,
     catchup=False,
 )
@@ -27,115 +31,70 @@ start_node = EmptyOperator(
     dag=query_DAG, 
     trigger_rule="all_success"
 )
-    
-# Function to execute SQL query and insert data into Neo4j
-def visualization():
+
+# Return: List
+# Iterates over all the regions in the dataset and all the months of a year and returns a list with the correlation coefficient for 
+# each region and month
+def calculate_correlation(threshold):
     # Define PostgreSQL connection parameters
     postgres_params = {
-        'user': 'airflow',
-        'password': 'airflow',
-        'host': 'postgres',
-        'port': '5432',
-        'database': 'postgres',
+        "postgres_conn_id": "postgres_default",
+        "host": "localhost",
+        "port": 5432,
+        "database": "airflow",
+        "username": "airflow",
+        "password": "airflow",
     }
-    # SQL query to retrieve data from the merged table
-    sql_query = "SELECT year, month, total_deaths, region, temperature FROM death_temperature_table"
 
-    # Connect to PostgreSQL database
-    postgres_connection = psycopg2.connect(**postgres_params)
-    postgres_cursor = postgres_connection.cursor()
+    # Create PostgreSQL connection
+    # postgres_hook = PostgresHook(postgres_conn_id="postgres_default")
+    # postgres_connection = postgres_hook.get_conn()
+    # postgres_cursor = postgres_connection.cursor()
 
-    # Execute SQL query
-    postgres_cursor.execute(sql_query)
-
-    # Fetch all rows from the result set
-    rows = postgres_cursor.fetchall()
-
-    # Close PostgreSQL cursor and connection
-    postgres_cursor.close()
-    postgres_connection.close()
-
-
-graph_database_node = PythonOperator(
-    task_id="visualization",
-    dag=query_DAG,
-    trigger_rule="all_success",
-    python_callable=visualization,
-)
-
-def calculate_correlation_one():
-    # Retrieve user-defined variables for month and region
-    month = Variable.get("correlation_month", default_var="default_month")
-    region = Variable.get("correlation_region", default_var="default_region")
-
-    connection_params = {
-        'user': 'postgres',
-        'password': 'postgres',
-        'host': 'localhost',
-        'port': '5432',
-        'database': 'postgres',
-    }
     # Connect to the postgres databse
-    connection = psycopg2.connect(**connection_params)
+    connection = psycopg2.connect(**postgres_params)
     cursor = connection.cursor()
 
-    cursor.execute('''SELECT SUM(temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
-    x_sum = cursor.fetchone()[0]
+    cursor.execute('''SELECT DISTINCT region FROM death_temperature_table;''')
+    regions = cursor.fetchall()
 
-    cursor.execute('''SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
-    y_sum = cursor.fetchone()[0]
+    liste = []
+    for region in regions:
+        region = region[0]
 
-    cursor.execute('''SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
-    x_squared_sum = cursor.fetchone()[0]
-
-    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
-    y_squared_sum = cursor.fetchone()[0]
-
-    cursor.execute('''SELECT COUNT(*) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
-    count_x = cursor.fetchone()[0]
-
-    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
-    sum_xy_product = cursor.fetchone()[0]
-   
-   # math function for the correlation
-    try:
-        correlation_coefficient = (count_x * sum_xy_product - (x_sum * y_sum)) / math.sqrt((count_x * x_squared_sum - x_sum * x_sum) * (count_x * y_squared_sum - y_sum * y_sum))
-    # if denominator is zero, error occurs
-    except ZeroDivisionError:
-        print("Error: Division by zero. This could be due to the dataset being too small or no data points meeting the threshold.")
-        correlation_coefficient = None
+        for month in range(1, 13):
+            if threshold == None:
+                liste.append({'Month': month, 'Region': region, 'Correlation coefficient': query_without_threshold(cursor, region, month), 'Threshold': None})
+            else:
+                liste.append({'Month': month, 'Region': region, 'Correlation coefficient': query_with_threshold(cursor, region, month, threshold), 'Treshold': threshold})
 
     # Commit and close the connection
     connection.commit()
     cursor.close()
     connection.close()
-    
-    return correlation_coefficient
+
+    return liste
 
 correlation_one_node = PythonOperator(
-    task_id="correlation_temperature_death",
+    task_id="visualization",
     dag=query_DAG,
     trigger_rule="all_success",
-    python_callable=calculate_correlation_one,
+    # threshold = None
+    python_callable=calculate_correlation(None),
 )
 
-def calculate_correlation_two():
-    # Retrieve user-defined variables for month and region
-    month = Variable.get("correlation_month", default_var="default_month")
-    region = Variable.get("correlation_region", default_var="default_region")
-    threshold = Variable.get("threshold_temperature", default_var="default_threshold")
+correlation_two_node = PythonOperator(
+    task_id="visualization",
+    dag=query_DAG,
+    trigger_rule="all_success",
+    # threshold = 32.0 °
+    python_callable=calculate_correlation(32.0),
+)
 
-    connection_params = {
-        'user': 'postgres',
-        'password': 'postgres',
-        'host': 'localhost',
-        'port': '5432',
-        'database': 'postgres',
-    }
-    # Connect to the postgres database
-    connection = psycopg2.connect(**connection_params)
-    cursor = connection.cursor()
-
+# Return: correlation coefficient
+# For a given month in a given region, queries the database to calcualte the correlation coefficient for a spesific threshold for the temperature
+def query_with_threshold(cursor, region, month, threshold):
+    
     cursor.execute('''SELECT SUM(temperature) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
     x_sum = cursor.fetchone()[0]
 
@@ -162,18 +121,62 @@ def calculate_correlation_two():
         print("Error: Division by zero. This could be due to the dataset being too small or no data points meeting the threshold.")
         correlation_coefficient = None
 
-    # Commit and close the connection
-    connection.commit()
-    cursor.close()
-    connection.close()
+    liste = []
+    liste.append({'Month': month, 'Region': region, 'Correlation coefficient': correlation_coefficient, 'Threshold': threshold})
+    return print(liste)
+
+# Return: correlation coefficient
+# For a given month in a given region, queries the database to calcualte the correlation coefficient
+def query_without_threshold(cursor, region, month):
+    
+    cursor.execute('''SELECT SUM(temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    x_sum = cursor.fetchone()[0]
+
+    cursor.execute('''SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    y_sum = cursor.fetchone()[0]
+
+    cursor.execute('''SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    x_squared_sum = cursor.fetchone()[0]
+
+    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    y_squared_sum = cursor.fetchone()[0]
+
+    cursor.execute('''SELECT COUNT(*) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    count_x = cursor.fetchone()[0]
+
+    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    sum_xy_product = cursor.fetchone()[0]
+   
+    # math function for the correlation
+    try:
+        correlation_coefficient = (count_x * sum_xy_product - (x_sum * y_sum)) / math.sqrt((count_x * x_squared_sum - x_sum * x_sum) * (count_x * y_squared_sum - y_sum * y_sum))
+    # if denominator is zero, error occurs
+    except ZeroDivisionError:
+        print("Error: Division by zero. This could be due to the dataset being too small or no data points meeting the threshold.")
+        correlation_coefficient = None
     
     return correlation_coefficient
 
-correlation_two_node = PythonOperator(
-    task_id="correlation_temperature_death_threshold",
+# Visualize: heatmap with x-axis: Month and y-axis: correlation coefficient
+# Creates a heatmap of the correlation coefficients over the months of the year in different regions
+def visualization(threshold):
+    # Create a DataFrame from the data
+    df = pd.DataFrame(calculate_correlation(threshold), columns=['Month', 'Region', 'Correlation coefficient', 'Threshold'])
+
+    # Drop rows with null 'Correlation coefficient' values
+    df = df.dropna(subset=['Correlation coefficient'])
+
+    # Visualize relationship between total deaths and temperature across all regions
+    sns.lmplot(x='Month', y='Correlation coefficient', hue='Region', data=df)
+    plt.title('Heatmap')
+    plt.show()
+
+graph_database_node = PythonOperator(
+    task_id="visualization",
     dag=query_DAG,
     trigger_rule="all_success",
-    python_callable=calculate_correlation_two,
+    # threshold = None, if question is 2 --> make threshold = 32.0°
+    python_callable=visualization(None),
 )
 
 end_node = EmptyOperator(

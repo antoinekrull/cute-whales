@@ -106,9 +106,9 @@ Persist the combined data into a staging zone for durability.
 - Include a STAR-diagram of the postgres
 
 ### Production Analytics (Pipeline 3):
-For the production phase of the data pipeline we both visualize the data in the postgres-database, as well as query the database in order to caluculate the correlation coeficient between the temperature and the total deaths in a region, for a spesific month. 
+For the production phase of the data pipeline we both visualize the data in the postgres-database, as well as query the database in order to caluculate the correlation coeficient between the temperature and the total deaths in a region, for every month. The visualization part is done by creating a a heatmap using seaborn, which is a Python data visualization library based on matplotlib. The x-axis contains the all the months in the dataset and the y-axis visualizes the correlation coefficient. 
 
-- TODO: legge til bilde (?)
+- TODO: legge til bilde av STAR-scheme
 
 #### Queries
 To look at the correlation coefficient between the temperature and the total deaths in a region and given month we query the postgres-database. The formula represents the correlation coefficient, denoted as r, which is a measure of the strength and direction of the relationship between two variables:
@@ -119,20 +119,29 @@ n → number of observations, x and y → temperature-variable and death-variabl
 The value of r ranges from -1 to 1. A value of -1 indicates a perfect negative relationship, a value of 1 indicates a perfect positive relationship, and a value of 0 indicates no relationship.
 
 Question 1: \
-This task calculates the correlation coefficient between temperature and total deaths for a specified month and region. The code retrieves user-defined variables for month and region, performs SQL queries on the PostgreSQL database, and computes the correlation using a mathematical formula.
+This task calculates the correlation coefficient between temperature and total deaths for a specified month and region. The code retrieves user-defined variables for month and region, performs SQL queries on the PostgreSQL database, and computes the correlation using a mathematical formula. The output of the query will be on thsi form:
 
-- TODO: legge til visualisert eksempel
+`[{'Month': month, 'Region': region, 'Correlation coefficient': query_without_threshold(cursor, region, month), 'Threshold': "None"}]`
+
+Example:
+`[{'Month': 1, 'Region': 'Paris', 'Correlation coefficient': -0.9607689228305124}, {'Month': 2, 'Region': 'Paris', 'Correlation coefficient': 0.9347195428044848}, ...]`
 
 Question 2: \
-Similar to the previous task, this calculates the correlation coefficient, but with an additional condition based on a temperature threshold. It considers only data points where the temperature is greater than or equal to the specified threshold. The threshold can vary, but for extreme heat the value will be 32°.
+Similar to the previous task, this calculates the correlation coefficient, but with an additional condition based on a temperature threshold. It considers only data points where the temperature is greater than or equal to the specified threshold. The threshold can vary, but for extreme heat the value will be 32°. The output of the query will be on thsi form:
+
+`[{'Month': month, 'Region': region, 'Correlation coefficient': query_without_threshold(cursor, region, month), 'Threshold': 32.0}]`
+
+Example:
+`[{'Month': 1, 'Region': 'Berlin', 'Correlation coefficient': -0.7607689228305124}, 'Threshold': 32.0, {'Month': 2, 'Region': 'Berlin', 'Correlation coefficient': 0.5347195428044848}, 'Threshold': 32.0, ...]`
 
 
 #### Data visualization
 - TODO: fullfør avsnitt \
 
-EITHER:
-Scatter Plots: Show the relationship between two continuous variables.
-In the scatter plot: Each point represents a data entry with the x-coordinate being the temperature and the y-coordinate being the total deaths. The regression line provides a visual representation of the correlation trend.
-OR:
-Heat map: The heatmap will show the correlation coefficients between all pairs of variables in your dataset.
-In the heatmap: The color intensity represents the strength and direction of the correlation. Positive correlations are shown in warmer colors (e.g., red), and negative correlations are in cooler colors (e.g., blue). Values close to 1 or -1 indicate strong correlations, while values close to 0 suggest a weaker correlation.
+The visualization is done by creating a heatmap. The create_heatmap function is designed to visualize the correlation coefficients between total deaths and temperature across different months and regions. Values close to 1 or -1 indicate strong correlations, while values close to 0 suggest a weaker correlation.
+
+The calculate_correlation function is called with a specified threshold, and the output is converted into a DataFrame named df. The DataFrame columns are named 'Month', 'Region', 'Correlation coefficient', and 'Threshold'.
+Data Cleaning: Rows with null values in the 'Correlation coefficient' column are dropped to ensure a clean dataset.
+The Seaborn library (sns) is used to create a scatter plot with a linear fit for the relationship between 'Month' and 'Correlation coefficient'. The x-axis represents the 'Month', and the y-axis represents the 'Correlation coefficient'.
+
+The resulting visualization provides a quick overview of how the correlation coefficients vary across different months and regions. Negative values indicate a negative correlation, while positive values indicate a positive correlation. The strength of the correlation is determined by the magnitude of the coefficient.
