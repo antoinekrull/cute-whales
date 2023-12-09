@@ -1,19 +1,18 @@
 # TODOS
-- [x] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
-- [ ] **A**: finish all the operators in the dag
-- [x] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
-- [ ] **D**: wrangle the french data, count the number of names in given moths of given years. Format: (year, month, region, total deaths)
-- [ ] merge deaths datasets to one death collection
-- [ ] merge death data with temperature data. Format: (year, month (int), region, temperature, total deaths)
-- [ ] save data to postgres on format: (year, month (int), region, temperature, total deaths)
 - [ ] **Everybody**: Make presentation slides (each person make slides bout the things they have coded)
-- [ ] **S**: Fix the airflow broken DAG error
+- [x] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
+- [x] **A**: finish all the operators in the dag
+- [x] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
+- [x] **D**: wrangle the french data, count the number of names in given moths of given years. Format: (year, month, region, total deaths)
+- [x] merge deaths datasets to one death collection
+- [x] merge death data with temperature data. Format: (year, month (int), region, temperature, total deaths)
+- [x] save data to postgres on format: (year, month (int), region, temperature, total deaths)
 
 # cute-whales
 A project for the data engneering class at INSA Lyon.
 
 ### Presentation
-[Click here to go to the presentation](presentation.md)
+[Click here to go to the presentation](https://docs.google.com/presentation/d/12xfPM80ctExFdAcWCe8rlZORFldNV17-NuSUiB61aXw/edit?usp=sharing)
 
 ## Get started
 1. make sure Docker Desktop is running.
