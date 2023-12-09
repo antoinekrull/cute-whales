@@ -1,5 +1,7 @@
 # TODOS
-- [ ] **Everybody**: Make presentation slides (each person make slides bout the things they have coded)
+- [ ] **Everybody**: write report and debug the airflow tasks
+- [ ] **A, D**: fix airflow
+- [ ] **S**: plot information
 - [x] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
 - [x] **A**: finish all the operators in the dag
 - [x] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
