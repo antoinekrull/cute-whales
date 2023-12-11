@@ -12,12 +12,12 @@ from pymongo import MongoClient
 
 #  constants
 TEMPERATURE_DATASET_PATH = "/opt/airflow/dags/data/ingestion/GlobalLandTemperaturesByMajorCity.json"
-DEATH_BERLIN_DATASET_PATH = "./ingestion/deaths_berlin.csv"
-DEATH_BERLIN_CLEAN_DATASET_PATH = "./staging/deaths_berlin.csv"
+DEATH_BERLIN_DATASET_PATH = "/opt/airflow/dags/data/ingestion/deaths_berlin.csv"
+DEATH_BERLIN_CLEAN_DATASET_PATH = "/opt/airflow/dags/data/staging/deaths_berlin.csv"
 TEMPERATURE_CLEAN_DATASET_PATH = "/opt/airflow/dags/data/staging/GlobalLandTemperaturesByMajorCity.csv"
 FR_DEATH_DATASET_URL = 'https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5'
-FR_DEATH_INGESTION_DATA_PATH = './ingestion/fr/'
-FR_DEATH_CLEAN_DATA_PATH = './staging/'
+FR_DEATH_INGESTION_DATA_PATH = '/opt/airflow/dags/data/ingestion/fr/'
+FR_DEATH_CLEAN_DATA_PATH = '/opt/airflow/dags/data/staging/'
 PARIS_GEOGRAPHIC_CODE = '75'
 MONGODB_IP = "127.0.0.1"
 
