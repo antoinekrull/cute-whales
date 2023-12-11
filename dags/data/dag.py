@@ -60,7 +60,7 @@ def _import_clean_temperature_data():
     temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1", index=False)
 
 def _ber_import_clean_death_data():
-    death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH)
+    death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH, encoding='ISO-8859-1')
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
 def _import_ber_deaths_csv_to_mongodb(**kwargs):
