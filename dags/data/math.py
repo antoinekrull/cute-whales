@@ -1,16 +1,12 @@
 import datetime
-from airflow import DAG
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import math
+from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 import psycopg2
-from py2neo import Graph
-from airflow.models import Variable
-import math
-# from airflow.hooks.postgres_hook import PostgresHook
 
 default_args_dict = {
     "start_date": datetime.datetime(2023, 11, 28, 0, 0, 0),
@@ -41,21 +37,16 @@ def calculate_correlation(threshold):
         "postgres_conn_id": "postgres_default",
         "host": "localhost",
         "port": 5432,
-        "database": "airflow",
+        "database": "postgres",
         "username": "airflow",
         "password": "airflow",
     }
-
-    # Create PostgreSQL connection
-    # postgres_hook = PostgresHook(postgres_conn_id="postgres_default")
-    # postgres_connection = postgres_hook.get_conn()
-    # postgres_cursor = postgres_connection.cursor()
 
     # Connect to the postgres databse
     connection = psycopg2.connect(**postgres_params)
     cursor = connection.cursor()
 
-    cursor.execute('''SELECT DISTINCT region FROM death_temperature_table;''')
+    cursor.execute('''SELECT DISTINCT region FROM deaths_and_temperature;''')
     regions = cursor.fetchall()
 
     liste = []
@@ -95,22 +86,22 @@ correlation_two_node = PythonOperator(
 # For a given month in a given region, queries the database to calcualte the correlation coefficient for a spesific threshold for the temperature
 def query_with_threshold(cursor, region, month, threshold):
     
-    cursor.execute('''SELECT SUM(temperature) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    cursor.execute('''SELECT SUM(temperature) FROM deaths_and_temperature WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
     x_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    cursor.execute('''SELECT SUM(total_deaths) FROM deaths_and_temperature WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
     y_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    cursor.execute('''SELECT SUM(temperature * temperature) FROM deaths_and_temperature WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
     x_squared_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM deaths_and_temperature WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
     y_squared_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT COUNT(*) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    cursor.execute('''SELECT COUNT(*) FROM deaths_and_temperature WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
     count_x = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
+    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM deaths_and_temperature WHERE month = ? AND region = ? AND temperature >= ?;''', (month, region, threshold))
     sum_xy_product = cursor.fetchone()[0]
    
     # math function for the correlation
@@ -129,22 +120,22 @@ def query_with_threshold(cursor, region, month, threshold):
 # For a given month in a given region, queries the database to calcualte the correlation coefficient
 def query_without_threshold(cursor, region, month):
     
-    cursor.execute('''SELECT SUM(temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    cursor.execute('''SELECT SUM(temperature) FROM deaths_and_temperature WHERE month = ? AND region = ?;''', (month, region))
     x_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    cursor.execute('''SELECT SUM(total_deaths) FROM deaths_and_temperature WHERE month = ? AND region = ?;''', (month, region))
     y_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(temperature * temperature) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    cursor.execute('''SELECT SUM(temperature * temperature) FROM deaths_and_temperature WHERE month = ? AND region = ?;''', (month, region))
     x_squared_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    cursor.execute('''SELECT SUM(total_deaths * total_deaths) FROM deaths_and_temperature WHERE month = ? AND region = ?;''', (month, region))
     y_squared_sum = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT COUNT(*) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    cursor.execute('''SELECT COUNT(*) FROM deaths_and_temperature WHERE month = ? AND region = ?;''', (month, region))
     count_x = cursor.fetchone()[0]
 
-    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM death_temperature_table WHERE month = ? AND region = ?;''', (month, region))
+    cursor.execute('''SELECT SUM(temperature * total_deaths) FROM deaths_and_temperature WHERE month = ? AND region = ?;''', (month, region))
     sum_xy_product = cursor.fetchone()[0]
    
     # math function for the correlation
@@ -168,6 +159,7 @@ def visualization(threshold):
 
     # Visualize relationship between total deaths and temperature across all regions
     sns.lmplot(x='Month', y='Correlation coefficient', hue='Region', data=df)
+
     plt.title('Heatmap')
     plt.show()
 
