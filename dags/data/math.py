@@ -79,7 +79,7 @@ correlation_two_node = PythonOperator(
     dag=query_DAG,
     trigger_rule="all_success",
     # threshold = 32.0 °
-    python_callable=calculate_correlation(32.0),
+    python_callable=calculate_correlation('32.0'),
 )
 
 # Return: correlation coefficient
@@ -112,9 +112,7 @@ def query_with_threshold(cursor, region, month, threshold):
         print("Error: Division by zero. This could be due to the dataset being too small or no data points meeting the threshold.")
         correlation_coefficient = None
 
-    liste = []
-    liste.append({'Month': month, 'Region': region, 'Correlation coefficient': correlation_coefficient, 'Threshold': threshold})
-    return print(liste)
+    return correlation_coefficient
 
 # Return: correlation coefficient
 # For a given month in a given region, queries the database to calcualte the correlation coefficient
