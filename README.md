@@ -1,122 +1,91 @@
-# TODOS
-- [x] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
-- [ ] **A**: finish all the operators in the dag
-- [x] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
-- [ ] **D**: wrangle the french data, count the number of names in given moths of given years. Format: (year, month, region, total deaths)
-- [ ] merge deaths datasets to one death collection
-- [ ] merge death data with temperature data. Format: (year, month (int), region, temperature, total deaths)
-- [ ] save data to postgres on format: (year, month (int), region, temperature, total deaths)
-- [ ] **Everybody**: Make presentation slides (each person make slides bout the things they have coded)
-- [ ] **S**: Fix the airflow broken DAG error
+Requirements::
+- [ ] example dataset so that testing can work offline
+- [ ] have detailed description of the various steps
+- [x] docker-compose file for environment
+- [x] datasets from two different data sources (e.g. different formats)
+- [x] ingest data from source to transient storage
+- [x] cleaning, wrangling and enriching data and store in durable storage
+- [x] have permanent storage
+- [ ] deploy queries to answer questions
+- [ ] visualization
 
 # cute-whales
-A project for the data engneering class at INSA Lyon.
+**A small  Data Engineering project on whether a connection can be found between deaths and temperature.**
 
-### Presentation
-[Click here to go to the presentation](presentation.md)
+by Antoine Krull, Danja Bauer and Synne .. 
 
-## Get started
-1. make sure Docker Desktop is running.
-2. run `mkdir -p ./dags ./logs ./plugins ./config` and `echo -e "AIRFLOW_UID=$(id -u)" > .env`
-3. Run `docker-compose up airflow-init` run database migrations and create the first user account.
-4. Build and run the environment using the `docker-compose up` command.
-5. Connect to the airflow dashboard [localhost:8080](http://localhost:8080/), where user and password is `airflow`
-6. Add a connection to the postgres SQL database. Navigate To the Admin -> Connections menu, then click the blue + button to add a new connection.
-After it is up, add a new connection:
+# Project Presentation
+As we want to analyze the correlation between the number of deaths and various aspects of termperatures, we formulated the following questions:
+1. Is there a correlation between temperature variations and mortality rates in major cities (Berlin, Paris)?
+2. How do temperature-related factors, such as extreme heat events or prolonged cold spells, impact rates in specific regions (Berlin, Paris)?
 
-After it is up, add a new connection:
+Additionally we want to use our data pipeline to visualize our findigs.
 
-* Name - postgres_default
-* Conn type - postgres
-* Host - localhost
-* Port - 5432
-* Database - airflow
-* Username - airflow
-* Password - airflow
+# Data Sources
+Initially, we wanted to look into whale migration patterns and various influencing factors such as sea temperature.
+However it was impossible to obtain a complete dataset for sea temperature. \
+Meanwhile we found good data sets for land temperature.\
+Afterwards we searched the web for a suitable accompanying dataset.
+Here we discovered that the number of deaths are well-documented across different countries. \
+To facilite handling, we decided to focuse our research on France and Germany with a possible expansion on data from Norway as we understand German, Norwegian and French.
+
+Therefore we utilize: 
+- the German Federal Office of Statistics
+- Insee (the French equivalent) 
+- Kaggle 
+
+to obatin the necesssary data.
+
+# Project Lifecycle
+This is the overall structure of our data pipeline. \
+![Alt text](Pipeline.png)
+
+## Ingestion Phase
+During the ingestion phase, we sourced our data from the mentioned sources, performed a small number of cleansing operations and loaded the refined data into MongoDB.
+
+### 1. French Death Data Ingestion
+The data obtained from Insee is initially in txt format and distributed across multiple files. Moreover it is quite large as it contains one entry for every dead person since 1970, and since we already know that our research will focus soly on Paris, we also conduct filtering operations. 
+
+The ingestion process is divided into the following tasks whch are executed in the respective order: 
+- get_death_file_list(): gets the urls of all the text files
+- get_all_death_files(): downloads all the data files
+- collect_specific_location_data(): combines all the files while retaining only the individuals who died in Paris
+- death_data_to_csv(): parses the txt file to a csv file in order to facilitate the ingestion into mongoDB
+- import_deaths_csv_to_mongodb(): creates a mongo collection and inserts the data from the csv file
+
+### 2. German Death Data Ingestion
+The data obtained from the German Federal Office of Statistics is in json format
+
+### 3. Temperature Data Ingestion
 
 
-# Project presentation
-There is said that there can be found a connection between temperature and death. Through our pipeline 
-we will try to both find and visualize a link by ingesting three different datasets with, wrangle them to a preferred format and visualize the data through a graph database in order to answer the following questions: 
+## Staging Phase
 
-### Questions:
+### 1. French Data Wrangling
+As our interest lies in the number of deaths for each month, a crucial step involves summarizing the data.
 
-Question 1: Are there correlations between temperature variations in major cities around the world and mortality rates in different regions of Germany and France?
+The task called wrangle_death_data_in_mongodb() handels this step. Here an aggregation pipeline counts the deceased for each month and year and stores this count, together with the month and year, in a new collection.
 
-Question 2: How do temperature-related factors, such as extreme heat events or prolonged cold spells, impact mortality rates in specific regions, and can we identify vulnerable regions?
+### 2. Merging
+A big part of our project consists of merging the different datasets. We divided this into two phases.
 
-Our data will be structured something like this, with an example:
-| Year | Month | Number of deaths | Region | Temperature | 
-| -------- | -------- | -------- | -------- | -------- |
-| value  | value   | value  | value   | value  |
-| 2020  | July   | 204   | Paris   | 40 (celsius)   |
-| 2018  | September   | 178   | Berlin   | 19 (celsius)   |
+First we merge the Berlin and the Paris death datasets simply by parsing all documents into a single collection.
 
-The vislualization will :
-```mermaid
-flowchart LR
-    t1((1°- 5°)) -- Berlin, April, 2020 --> d1((117))
-    t1((1°- 5°)) -- Paris, Mars, 2018 --> d2((57))
-    t2((6°-10)) -- Berlin, October, 2015 --> d3((87))
-    t3((11°-15°)) -- Paris, April, 2021 --> d1((117))
-    t4((16°-20°)) --Berlin, May, 2018 --> d4((158))
-    t5((21°-25°)) -- Paris, May, 2019 --> d4((158)) 
-    t3((11°-15°)) -- Paris, October, 2016 --> d3((87))
-    t4((16°-20°)) -- Berlin, June, 2017 --> d5((27))
-    t6((26°-30°)) -- Paris, December, 2022 --> d6((1))
-    t7((31°-35°)) -- Paris, July, 2019 --> d1((117))
-```
+Afterwards this collection is merged with the temperature data.
+The approach we apply here is a left outer join between the death and the temperature collection on the year, month and region where we stash the temperature data in an array. Then we create a new document for each document in the death collection and add the temperature value to the respective entry and insert this into a new collection called deaths_and_temperature.
 
-## Data sources
-The project utilises three different datasources:
+-- add picture of deaths_and_temperature entry--
 
-### Temperature 
-This dataset contains information about XXX in a .json-file an is structured with coloums XXX
-- Include visualization of the data (?)
+### 3. Storage
+Now we add our data to Postgres in order to make it permanent.
 
-### Deaths in France
-This dataset contains information about XXX in a .txt-file an is structured with coloums XXX
-- Include visualization of the data (?)
+## Production Phase
+In this phase of the data pipeline we use the following queries to help answer our initial questions:
+- cc
+- xx
 
-### Deaths in Berlin
-This dataset contains information about XXX in a .csv-file an is structured with coloums XXX
-- Include visualization of the data (?)
+# Difficulties?
 
-## Data Pipeline Design
-![alt text](/Pipeline.png)
-
-### Ingestion (Pipeline 1):
-Ingest city temperature data from sources.
-Ingest German and French mortality data from sources.
-Store this data in a landing zone, which could be cloud-based storage or a local database.
-Use Apache Airflow to automate data ingestion and schedule updates.
-
-- Explain how we ingest the data
-- Inclue an image of the collections in MongoDB
-- Include image of DAG (?)
-
-### Staging (Pipeline 2):
-Clean and preprocess the raw data, addressing missing values or inconsistencies.
-Join the cleaned whale movement data with oceanographic data to enrich the dataset.
-Transform the data into a structured format suitable for analysis.
-Persist the combined data into a staging zone for durability.
-
-- Include image of DAG (?)
-- Include image of postgres database and how data is saved in table
-- Include a STAR-diagram of the postgres
-
-### Production Analytics (Pipeline 3):
-For the production phase we start by saving the data from our postgres-table to neo4j in order to simplify the data as well as query the graph-database in order to answer our questions. In the graph databse the nodes will be City nodes and Temperature-nodes, where the relation between the nodes are the number of deaths in a given month of a given year corresponding to the temperature of this month in this year and the region this temperature was recorded. The databse look like this:
-- Include image of grapha-database from neo4j (?)
-
-#### Queries
-Query question 1: \
-MATCH (t:Temperature)-[r:IN_REGION]->(d:Deaths) \
-RETURN t.value, d.value, r.region, r.year, r.month \
-ORDER BY d.value DESC; 
-
-Query question 2: \
-MATCH (t:Temperature)<-[r:IN_REGION]-(d:Deaths) \
-WHERE d.total_deaths > threshold // threshold = 32° \
-RETURN t.value, d.value, r.region, r.year, r.month \
-ORDER BY d.total_deaths DESC; 
+# Further considerations & ideas
+Building up on our findings, one could analyze the influence of additional weather-related factors, such as varying humidity levels or extreme wind, on the number of deaths. This could be accomplished by icorporating a corresponding dataset. \
+Furthermore, the correlations could be examined for other cities, broadening the scope of our analysis.
