@@ -64,16 +64,19 @@ def _ber_import_clean_death_data():
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
 def _import_ber_deaths_csv_to_mongodb(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongodb_port']}")
+    client = MongoClient("mongodb://65d308834d3b:27017")
 
     db = client[kwargs['db_name']]
     collection = db[kwargs['collection_name']]
 
-    with open(kwargs['csv_file'], 'r') as file:
+    with open(DEATH_BERLIN_CLEAN_DATASET_PATH, 'r', encoding='ISO-8859-1') as file:
         lines = file.readlines()
         #  skips the first 6 lines because of unnecessary information
         for row in lines[6:]:
             split_row = row.split(";")
+            #  skips rows who are lacking data
+            if '...' in split_row[2]:
+                break
             document = {
                 "year": split_row[0],
                 "month": get_number_of_month(split_row[1]),
@@ -109,13 +112,13 @@ def get_number_of_month(month):
     else:
         return "12"
 
-def _import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
+def _import_temperature_csv_to_mongodb(mongodb_port, db_name, collection_name):
+    client = MongoClient("mongodb://65d308834d3b:27017")
 
     db = client[db_name]
     collection = db[collection_name]
 
-    with open(csv_file, 'r') as file:
+    with open(TEMPERATURE_CLEAN_DATASET_PATH, 'r', encoding='ISO-8859-1') as file:
         lines = file.readlines()
         for row in lines:
             split_row = row.split(",")
@@ -357,7 +360,7 @@ import_ber_death_data_to_mongodb = PythonOperator(
             task_id='import_ber_deaths_to_mongodb',
             dag=dag,
             python_callable=_import_ber_deaths_csv_to_mongodb,
-            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "ber_deaths", 'csv_file': "./staging/deaths_berlin.csv"},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "ber_deaths"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
@@ -366,7 +369,7 @@ import_temperature_csv_to_mongodb = PythonOperator(
             task_id='import_temperature_to_mongodb',
             dag=dag,
             python_callable=_import_temperature_csv_to_mongodb,
-            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "temperature", 'csv_file': "./staging/GlobalLandTemperaturesByMajorCity.csv"},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "temperature"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
