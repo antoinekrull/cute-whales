@@ -145,3 +145,6 @@ Data Cleaning: Rows with null values in the 'Correlation coefficient' column are
 The Seaborn library (sns) is used to create a scatter plot with a linear fit for the relationship between 'Month' and 'Correlation coefficient'. The x-axis represents the 'Month', and the y-axis represents the 'Correlation coefficient'.
 
 The resulting visualization provides a quick overview of how the correlation coefficients vary across different months and regions. Negative values indicate a negative correlation, while positive values indicate a positive correlation. The strength of the correlation is determined by the magnitude of the coefficient.
+
+### Future work
+For futire work there are several posibilities for the pipeline. We can add more types of weather data in order to answer the second question. In addition to temaerature data, we can add windspeed-data with a threshold for extreme wind, or precipitation data with a threshold for extreme precipitation, etc. We also have the possibility to add death numbers for more regions than just Paris and Berlin. At the same time we can also add the temperature-column for the regions added by cleaning the datasett differently. 
