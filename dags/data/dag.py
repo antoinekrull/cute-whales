@@ -82,7 +82,7 @@ def _import_ber_deaths_csv_to_mongodb(**kwargs):
                 "month": get_number_of_month(split_row[1]),
                 "region": "Berlin",
                 #  drops the "\n" at the end of the total number
-                "total deaths": str(split_row[4][:-2])
+                "totaldeaths": str(split_row[4][:-2])
             }
             collection.insert_one(document)
     
@@ -158,8 +158,9 @@ def _fr_collect_specific_location_data():
     import glob
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
-    for _ in files:
-        with open(f'{FR_DEATH_INGESTION_DATA_PATH}f', 'r') as f2:
+    for f in files:
+        print(f"In file {f}")
+        with open(f, 'r') as f2:
             for line in f2:
                 death_location = line[162:167]
                 if (death_location[:2] == location):
@@ -169,17 +170,17 @@ def _fr_collect_specific_location_data():
                             f3.write(f'{name}, {death_date}, {death_location} \n')
 
 def _fr_death_data_to_csv():
-    account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}', header= None)
+    account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt', header= None)
     account.columns = ['Name', 'Date of death', 'Location of Death']
     account.to_csv(f'{FR_DEATH_CLEAN_DATA_PATH}ParisDeathData.csv', index= None)
 
-def _import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
+def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
+    client = MongoClient("mongodb://65d308834d3b:27017")
 
     db = client[db_name]
     collection = db[collection_name]
 
-    with open(csv_file, 'r') as file:
+    with open("/opt/airflow/dags/data/staging/ParisDeathData.csv", 'r') as file:
         # skip row with column titles
         lines = file.readlines()
         for row in lines[1:]:
@@ -193,7 +194,7 @@ def _import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection
             collection.insert_one(document)
 
 def _wrangle_fr_death_data_in_mongodb(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+    client = MongoClient("mongodb://65d308834d3b:27017")
 
     db = client[kwargs['db_name']]
     stag_col = db[kwargs['collection_staging']]
@@ -227,12 +228,12 @@ def _wrangle_fr_death_data_in_mongodb(**kwargs):
             "year" : r['year'],
             "month" : r['month'],
             "region" : "Paris",
-            "total deaths" :  r['totalDeaths']
+            "totaldeaths" :  r['totalDeaths']
         }
         stag_col.insert_one(document)
         
 def _merge_death(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+    client = MongoClient("mongodb://65d308834d3b:27017")
 
     db = client[kwargs['db_name']]
     ber_col = db[kwargs['ber_coll']]
@@ -242,95 +243,131 @@ def _merge_death(**kwargs):
     ber_res = ber_col.find()
     fr_res = fr_col.find()
 
+    if merge_col.find():
+        return
+
     merge_col.insert_many(list(ber_res))
     merge_col.insert_many(list(fr_res))
 
-def _merge_deaths_and_temperatures(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+    # for doc in ber_res:
+    #     merge_col.update_one({'_id': doc['_id']}, {'$set': doc}, upsert=True)
+    # for doc in fr_res:
+    #     merge_col.update_one({'_id': doc['_id']}, {'$set': doc}, upsert=True)
 
-    db = client["temperature_deaths"]
-    deaths = db["deaths"]
-    temp_and_death = db["temp_and_death"]
+# def _merge_deaths_and_temperatures(**kwargs):
+#     client = MongoClient("mongodb://65d308834d3b:27017")
 
-    pipeline = [
-        {
-            '$lookup': {
-                'from': "temperature",
-                'localField': "year",
-                'foreignField': "year",
-                'as': "temperatureData"
-            }
-        },
-        {
-            '$unwind': {
-                'path': "$temperatureData",
-                'preserveNullAndEmptyArrays': True
-            }
-        },
-        {
-            '$project': {
-                'year': 1,
-                'month': 1,
-                'region': 1,
-                'totalDeaths': 1,
-                'temperature': "$temperatureData.temperature"
-            }
-        },
-        {
-            '$merge': {
-                'into': "temp_and_death",
-                'whenMatched': "merge",
-                'whenNotMatched': "insert"
-            }
-        }
-    ]
+#     db = client["temperature_deaths"]
+#     deaths = db["deaths"]
+#     temp_and_death = db["temp_and_death"]
 
-    result = list(deaths.aggregate(pipeline))
-    for r in result:
-            document = {
-                "year" : r['year'],
-                "month" : r['month'],
-                "region" : r['region'],
-                "total deaths" :  r['totalDeaths'],
-                "temperature" : r['temperature']
-            }
-            temp_and_death.insert_one(document)
+#     pipeline = [
+#         {
+#             '$lookup': {
+#                 'from': "temperature",
+#                 'localField': "year",
+#                 'foreignField': "year",
+#                 'as': "temperatureData"
+#             }
+#         },
+#         {
+#             '$unwind': {
+#                 'path': "$temperatureData",
+#                 'preserveNullAndEmptyArrays': True
+#             }
+#         },
+#         {
+#             '$project': {
+#                 'year': 1,
+#                 'month': 1,
+#                 'region': 1,
+#                 'totalDeaths': 1,
+#                 'temperature': "$temperatureData.temperature"
+#             }
+#         },
+#         {
+#             '$merge': {
+#                 'into': "temp_and_death",
+#                 'whenMatched': "merge",
+#                 'whenNotMatched': "insert"
+#             }
+#         }
+#     ]
 
-    def _merge_deaths_and_temperatures():
-        client = MongoClient("mongodb://127.0.0.1:27017")
+#     result = list(deaths.aggregate(pipeline))
+#     column_names = list(result[0].keys())
+#     print("Spaltennamen:", column_names)
+#     for r in result:
+#             document = {
+#                 "year" : r['year'],
+#                 "month" : r['month'],
+#                 "region" : r['region'],
+#                 "totaldeaths" :  r['totalDeaths'],
+#                 "temperature" : r['temperature']
+#             }
+#             temp_and_death.insert_one(document)
 
-        db_deaths = client["death_db"]
-        db_temp = client["temperature_db"]
+def _merge_deaths_and_temperatures():
+    client = MongoClient("mongodb://65d308834d3b:27017")
 
-        deaths = db_deaths["deaths"]
-        temperature = db_temp["temperature"]
-        
-        death_data = pd.DataFrame(list(deaths.find())).drop('_id', axis=1)
-        temp_data = pd.DataFrame(list(temperature.find())).drop('_id', axis=1)
+    db_deaths = client["death_db"]
+    db_temp = client["temperature_db"]
 
-        merged_df = pd.merge(death_data, temp_data, on=["year", "month", "region"], how="inner")
-        
-        if "deaths_and_temperature" not in db_deaths.list_collection_names():
-            db_deaths.create_collection("deaths_and_temperature")
-        
-        db_deaths["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
+    deaths = db_deaths["deaths"]
+    temperature = db_temp["temperature"]
+    
+    death_data = pd.DataFrame(list(deaths.find())).drop('_id', axis=1)
+    temp_data = pd.DataFrame(list(temperature.find())).drop('_id', axis=1)
 
-    def _create_postgres_insert_query():
-        client = MongoClient("mongodb://127.0.0.1:27017")
-        db_deaths = client["death_db"]
-        temp_death_coll = db_deaths["deaths_and_temperature"]
+    merged_df = pd.merge(death_data, temp_data, on=["year", "month", "region"], how="inner")
+    column_names = list(merged_df.columns)
+    print("Spaltennamen:", column_names)
+    print("COLLECTION NAMES: " + str(db_deaths.list_collection_names()))
+    if "deaths_and_temperature" not in db_deaths.list_collection_names():
+        db_deaths.create_collection("deaths_and_temperature")
+    
+    db_deaths["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
 
-        data = list(temp_death_coll.find())
-        
-        for document in data:
-            query += f"INSERT INTO deaths_and_temperature ('{document['year']}',\
-                                                            '{document['month']}',\
-                                                            '{document['region']}',\
-                                                            '{document['total deaths']}',\
-                                                            '{document['temperature']}') ON CONFLICT DO NOTHING;\n"
-        
-        #  TODO: dont forget to delete afterwards
-        with open("dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
+def _create_postgres_insert_query():
+    client = MongoClient("mongodb://65d308834d3b:27017")
+    db_deaths = client["death_db"]
+    temp_death_coll = db_deaths["deaths_and_temperature"]
+
+    data = list(temp_death_coll.find())
+    column_names = list(data[0].keys())
+    print("Spaltennamen:", column_names)
+    query = ""
+    for document in data:
+        #  TODO: quick fix for empty deaths in doc, needs to be fixed
+        if document["totaldeaths"] != "":
+            query += f"INSERT INTO deaths_and_temperature (year, month, region, totaldeaths, temperature) VALUES ({document['year']}, {document['month']}, '{document['region']}', {document['totaldeaths']}, {document['temperature']}) ON CONFLICT DO NOTHING;\n"
+    
+    #  TODO: dont forget to delete afterwards
+    with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
+
+import sqlite3
+def _insert_into_db():
+    # Create a connection
+    conn = sqlite3.connect('C:\\Users\\admin\\Desktop\\fode\\cute-whales\\dags\\data\\test.db')
+    cursor = conn.cursor()
+
+    # Read SQL file content
+    with open('C:\\Users\\admin\\Desktop\\fode\\cute-whales\\dags\\data\\sql\\temp\\death_and_temp_insert.sql', 'r') as sql_file:
+        sql_statements = sql_file.read().split(';')
+
+    # Execute each SQL statement
+    for statement in sql_statements:
+        try:
+            cursor.execute(statement)
+        except sqlite3.Error as e:
+            print(f"Error executing SQL statement: {e}")
+
+    # Commit the changes to the database
+    conn.commit()
+
+    # Close the connection
+    conn.close()
+
 
 #  operator definition
 start = DummyOperator(
@@ -383,23 +420,23 @@ fr_get_death_files_list = PythonOperator(
             depends_on_past=False,
         )
 
-fr_get_all_death_files = PythonOperator(
-            task_id='fr_get_all_death_files',
-            dag=dag,
-            python_callable=_fr_get_all_death_files,
-            op_kwargs={},
-            trigger_rule='all_success',
-            depends_on_past=False,
-        )
+# fr_get_all_death_files = PythonOperator(
+#             task_id='fr_get_all_death_files',
+#             dag=dag,
+#             python_callable=_fr_get_all_death_files,
+#             op_kwargs={},
+#             trigger_rule='all_success',
+#             depends_on_past=False,
+#         )
 
-fr_collect_specific_location_data = PythonOperator(
-            task_id='fr_collect_specific_location_data',
-            dag=dag,
-            python_callable=_fr_collect_specific_location_data,
-            op_kwargs={},
-            trigger_rule='all_success',
-            depends_on_past=False,
-        )
+# fr_collect_specific_location_data = PythonOperator(
+#             task_id='fr_collect_specific_location_data',
+#             dag=dag,
+#             python_callable=_fr_collect_specific_location_data,
+#             op_kwargs={},
+#             trigger_rule='all_success',
+#             depends_on_past=False,
+#         )
 
 fr_death_data_to_csv = PythonOperator(
             task_id='fr_death_data_to_csv',
@@ -414,7 +451,7 @@ import_fr_deaths_csv_to_mongodb = PythonOperator(
             task_id='import_fr_deaths_csv_to_mongodb',
             dag=dag,
             python_callable=_import_fr_deaths_csv_to_mongodb,
-            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "fr_deaths", 'csv_file': "./staging/ParisDeathData.csv"},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "fr_deaths"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
@@ -446,6 +483,24 @@ create_death_and_temp_table = PostgresOperator(
         autocommit=True,
     )
 
+merge_deaths_and_temperatures = PythonOperator(
+        task_id='merge_deaths_and_temperatures',
+        dag=dag,
+        python_callable=_merge_deaths_and_temperatures,
+        op_kwargs={},
+        trigger_rule='all_success',
+        depends_on_past=False,
+    )
+
+create_postgres_insert_query = PythonOperator(
+        task_id='create_postgres_insert_query',
+        dag=dag,
+        python_callable=_create_postgres_insert_query,
+        op_kwargs={},
+        trigger_rule='all_success',
+        depends_on_past=False,
+    )
+
 store_death_and_temp_in_postgres = PostgresOperator(
         task_id='store_death_and_temp_in_postgres',
         dag=dag,
@@ -455,8 +510,19 @@ store_death_and_temp_in_postgres = PostgresOperator(
         autocommit=True,
     )
 
+store_localy = PythonOperator(
+    task_id = 'store_localy', 
+    dag=dag, 
+    python_callable=_insert_into_db,
+    op_kwargs={},
+    trigger_rule='all_success',
+    depends_on_past=False,
+)
+
 start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> import_temperature_csv_to_mongodb
-fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
-[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> store_death_and_temp_in_postgres
+fr_get_death_files_list  >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
+# fr_get_death_files_list >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
+# fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
+[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_localy #  >> store_death_and_temp_in_postgres
