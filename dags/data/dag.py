@@ -420,23 +420,23 @@ fr_get_death_files_list = PythonOperator(
             depends_on_past=False,
         )
 
-# fr_get_all_death_files = PythonOperator(
-#             task_id='fr_get_all_death_files',
-#             dag=dag,
-#             python_callable=_fr_get_all_death_files,
-#             op_kwargs={},
-#             trigger_rule='all_success',
-#             depends_on_past=False,
-#         )
+fr_get_all_death_files = PythonOperator(
+            task_id='fr_get_all_death_files',
+            dag=dag,
+            python_callable=_fr_get_all_death_files,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
 
-# fr_collect_specific_location_data = PythonOperator(
-#             task_id='fr_collect_specific_location_data',
-#             dag=dag,
-#             python_callable=_fr_collect_specific_location_data,
-#             op_kwargs={},
-#             trigger_rule='all_success',
-#             depends_on_past=False,
-#         )
+fr_collect_specific_location_data = PythonOperator(
+            task_id='fr_collect_specific_location_data',
+            dag=dag,
+            python_callable=_fr_collect_specific_location_data,
+            op_kwargs={},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
 
 fr_death_data_to_csv = PythonOperator(
             task_id='fr_death_data_to_csv',
@@ -524,5 +524,5 @@ get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> import_temperature_csv_to_mongodb
 fr_get_death_files_list  >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
 # fr_get_death_files_list >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
-# fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
+fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
 [wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_localy #  >> store_death_and_temp_in_postgres
