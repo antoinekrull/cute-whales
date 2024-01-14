@@ -1,12 +1,9 @@
 import datetime
-import os
 import airflow
 from airflow import DAG
-from airflow.operators.bash_operator import BashOperator
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.python_operator import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.utils.task_group import TaskGroup
 import pandas as pd
 from pymongo import MongoClient
 
@@ -112,7 +109,7 @@ def get_number_of_month(month):
     else:
         return "12"
 
-def _import_temperature_csv_to_mongodb(mongodb_port, db_name, collection_name):
+def _import_temperature_csv_to_mongodb(db_name, collection_name):
     client = MongoClient("mongodb://65d308834d3b:27017")
 
     db = client[db_name]
@@ -248,64 +245,6 @@ def _merge_death(**kwargs):
 
     merge_col.insert_many(list(ber_res))
     merge_col.insert_many(list(fr_res))
-
-    # for doc in ber_res:
-    #     merge_col.update_one({'_id': doc['_id']}, {'$set': doc}, upsert=True)
-    # for doc in fr_res:
-    #     merge_col.update_one({'_id': doc['_id']}, {'$set': doc}, upsert=True)
-
-# def _merge_deaths_and_temperatures(**kwargs):
-#     client = MongoClient("mongodb://65d308834d3b:27017")
-
-#     db = client["temperature_deaths"]
-#     deaths = db["deaths"]
-#     temp_and_death = db["temp_and_death"]
-
-#     pipeline = [
-#         {
-#             '$lookup': {
-#                 'from': "temperature",
-#                 'localField': "year",
-#                 'foreignField': "year",
-#                 'as': "temperatureData"
-#             }
-#         },
-#         {
-#             '$unwind': {
-#                 'path': "$temperatureData",
-#                 'preserveNullAndEmptyArrays': True
-#             }
-#         },
-#         {
-#             '$project': {
-#                 'year': 1,
-#                 'month': 1,
-#                 'region': 1,
-#                 'totalDeaths': 1,
-#                 'temperature': "$temperatureData.temperature"
-#             }
-#         },
-#         {
-#             '$merge': {
-#                 'into': "temp_and_death",
-#                 'whenMatched': "merge",
-#                 'whenNotMatched': "insert"
-#             }
-#         }
-#     ]
-
-#     result = list(deaths.aggregate(pipeline))
-#     column_names = list(result[0].keys())
-#     print("Spaltennamen:", column_names)
-#     for r in result:
-#             document = {
-#                 "year" : r['year'],
-#                 "month" : r['month'],
-#                 "region" : r['region'],
-#                 "totaldeaths" :  r['totalDeaths'],
-#                 "temperature" : r['temperature']
-#             }
-#             temp_and_death.insert_one(document)
 
 def _merge_deaths_and_temperatures():
     client = MongoClient("mongodb://65d308834d3b:27017")
