@@ -10,7 +10,7 @@ Requirements::
 - [ ] visualization
 
 # cute-whales
-**A small  Data Engineering project on whether a connection can be found between deaths and temperature.**
+**A small  Data Engineering project on whether there is a connection between deaths and temperature.**
 
 by Antoine Krull, Danja Bauer and Synne .. 
 
@@ -23,11 +23,11 @@ Additionally we want to use our data pipeline to visualize our findigs.
 
 # Data Sources
 Initially, we wanted to look into whale migration patterns and various influencing factors such as sea temperature.
-However it was impossible to obtain a complete dataset for sea temperature. \
-Meanwhile we found good data sets for land temperature.\
+However it was impossible to obtain a complete dataset for sea temperature.
+Meanwhile we found good data sets for land temperature.
 Afterwards we searched the web for a suitable accompanying dataset.
 Here we discovered that the number of deaths are well-documented across different countries. \
-To facilite handling, we decided to focuse our research on France and Germany with a possible expansion on data from Norway as we understand German, Norwegian and French.
+To facilite handling the data, we decided to focuse our research on France and Germany with a possible expansion on data from Norway as we understand German, Norwegian and French.
 
 Therefore we utilize: 
 - the German Federal Office of Statistics
@@ -37,37 +37,45 @@ Therefore we utilize:
 to obatin the necesssary data.
 
 # Project Lifecycle
-This is the overall structure of our data pipeline. \
+This is the overall structure of our data pipeline. 
+
 ![Alt text](Pipeline.png)
+
+And we build a docker image to allow for better testing.\
+ --to do--
 
 ## Ingestion Phase
 During the ingestion phase, we sourced our data from the mentioned sources, performed a small number of cleansing operations and loaded the refined data into MongoDB.
 
 ### 1. French Death Data Ingestion
-The data obtained from Insee is initially in txt format and distributed across multiple files. Moreover it is quite large as it contains one entry for every dead person since 1970, and since we already know that our research will focus soly on Paris, we also conduct filtering operations. 
+The data obtained from Insee is initially in TXT format and distributed across multiple files. Moreover it is quite large as it contains e.g. one entry per dead person since 1970, therefore we conduct multiple filtering operations. 
 
-The ingestion process is divided into the following tasks whch are executed in the respective order: 
+Its ingestion process is divided into the following tasks which are executed in the respective order: 
 - get_death_file_list(): gets the urls of all the text files
 - get_all_death_files(): downloads all the data files
-- collect_specific_location_data(): combines all the files while retaining only the individuals who died in Paris
+- collect_specific_location_data(): combines all data files while retaining only the individuals who died in Paris
 - death_data_to_csv(): parses the txt file to a csv file in order to facilitate the ingestion into mongoDB
-- import_deaths_csv_to_mongodb(): creates a mongo collection and inserts the data from the csv file
+- import_deaths_csv_to_mongodb(): creates a mongo collection and inserts the data from the csv file finally
 
 ### 2. German Death Data Ingestion
-The data obtained from the German Federal Office of Statistics is in json format
+The German Federal Office of Statistics provides in CSV format which allows for easy parsing and insertion into our MongoDB database.
+This way we perform slight adjustments during the insertion process including the implementation of a numerical month format (get_number_of_month) and the addition of a comlumn for specifying Berlin as the region.
 
 ### 3. Temperature Data Ingestion
-
+The temperature data from Kaggle is provided in JSON format, but it provides an abundance of information.\
+Therefore we begin by dropping multiple columns such as the temperature uncertainty.
+Moreover we exclude entries before 1980 as this enhances the compatibility with our death data and we retain only entries correspond to Berlin and Paris.
+Lastly we convert the refined data into a csv file facilitating its subsequent parsing into the database. 
 
 ## Staging Phase
 
 ### 1. French Data Wrangling
 As our interest lies in the number of deaths for each month, a crucial step involves summarizing the data.
 
-The task called wrangle_death_data_in_mongodb() handels this step. Here an aggregation pipeline counts the deceased for each month and year and stores this count, together with the month and year, in a new collection.
+The task called wrangle_death_data_in_mongodb() handels this step. Here an aggregation pipeline counts the deceased for each month and year and stores this count, together with the month and year, in a new collection called fr_deaths_clean.
 
 ### 2. Merging
-A big part of our project consists of merging the different datasets. We divided this into two phases.
+A big part of our project consists of merging the different datasets. We divided this into two phases:
 
 First we merge the Berlin and the Paris death datasets simply by parsing all documents into a single collection.
 
@@ -78,6 +86,7 @@ The approach we apply here is a left outer join between the death and the temper
 
 ### 3. Storage
 Now we add our data to Postgres in order to make it permanent.
+This process is achieved by using SQL ... --to do--
 
 ## Production Phase
 In this phase of the data pipeline we use the following queries to help answer our initial questions:
@@ -85,6 +94,7 @@ In this phase of the data pipeline we use the following queries to help answer o
 - xx
 
 # Difficulties?
+In this section will dive into certain difficulties we encountered.
 
 # Further considerations & ideas
 Building up on our findings, one could analyze the influence of additional weather-related factors, such as varying humidity levels or extreme wind, on the number of deaths. This could be accomplished by icorporating a corresponding dataset. \
