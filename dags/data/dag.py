@@ -431,7 +431,7 @@ merge_death = PythonOperator(
 create_death_and_temp_table = PostgresOperator(
         task_id='create_death_and_temp_table',
         dag=dag,
-        postgres_conn_id='postgres_default',
+        postgres_conn_id='test',
         sql='sql/create_death_and_temp_table.sql',
         trigger_rule='none_failed',
         autocommit=True,
@@ -458,20 +458,11 @@ create_postgres_insert_query = PythonOperator(
 store_death_and_temp_in_postgres = PostgresOperator(
         task_id='store_death_and_temp_in_postgres',
         dag=dag,
-        postgres_conn_id='postgres_default',
+        postgres_conn_id='test',
         sql='sql/temp/death_and_temp_insert.sql',
         trigger_rule='none_failed',
         autocommit=True,
     )
-
-store_localy = PythonOperator(
-    task_id = 'store_localy', 
-    dag=dag, 
-    python_callable=_insert_into_db,
-    op_kwargs={},
-    trigger_rule='all_success',
-    depends_on_past=False,
-)
 
 start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
