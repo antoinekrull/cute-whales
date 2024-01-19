@@ -34,12 +34,12 @@ start_node = EmptyOperator(
 def calculate_correlation(threshold):
     # Define PostgreSQL connection parameters
     postgres_params = {
-        "postgres_conn_id": "postgres_default",
-        "host": "localhost",
-        "port": 5432,
+        "postgres_conn_id": "test",
+        "host": "db",
+        "port": 5439,
         "database": "postgres",
-        "username": "airflow",
-        "password": "airflow",
+        "username": "test",
+        "password": "test",
     }
 
     # Connect to the postgres databse
