@@ -4,3 +4,4 @@ logs/
 neo4j/
 plugins/
 .DS_Store
+dags/data/ingestion/fr/data[0-9]?*
