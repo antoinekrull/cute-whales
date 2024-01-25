@@ -18,6 +18,7 @@ FR_DEATH_INGESTION_DATA_PATH = '/opt/airflow/dags/data/ingestion/fr/'
 FR_DEATH_CLEAN_DATA_PATH = '/opt/airflow/dags/data/staging/'
 PARIS_GEOGRAPHIC_CODE = '75'
 MONGODB_IP = "127.0.0.1"
+MONGO_CONTAINER_ID = "29c2876f8e2f"
 
 #  DAG definition
 default_args_dict = {
@@ -69,8 +70,7 @@ def _ber_import_clean_death_data():
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
 def _import_ber_deaths_csv_to_mongodb(**kwargs):
-    mongo_cnt_id = get_mongo_container_id()
-    client = MongoClient(f"mongodb://{mongo_cnt_id}:27017")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[kwargs['db_name']]
     collection = db[kwargs['collection_name']]
@@ -88,7 +88,7 @@ def _import_ber_deaths_csv_to_mongodb(**kwargs):
                 "month": get_number_of_month(split_row[1]),
                 "region": "Berlin",
                 #  drops the "\n" at the end of the total number
-                "totaldeaths": str(split_row[4][:-3])
+                "totaldeaths": split_row[4][:-3]
             }
             collection.insert_one(document)
     
@@ -119,8 +119,7 @@ def get_number_of_month(month):
         return "12"
 
 def _import_temperature_csv_to_mongodb(db_name, collection_name):
-    mongo_cnt_id = get_mongo_container_id()
-    client = MongoClient(f"mongodb://{mongo_cnt_id}:27017")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[db_name]
     collection = db[collection_name]
@@ -183,8 +182,7 @@ def _fr_death_data_to_csv():
     account.to_csv(f'{FR_DEATH_CLEAN_DATA_PATH}ParisDeathData.csv', index= None)
 
 def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
-    mongo_cnt_id = get_mongo_container_id()
-    client = MongoClient(f"mongodb://{mongo_cnt_id}:27017")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[db_name]
     collection = db[collection_name]
@@ -203,8 +201,7 @@ def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
             collection.insert_one(document)
 
 def _wrangle_fr_death_data_in_mongodb(**kwargs):
-    mongo_cnt_id = get_mongo_container_id()
-    client = MongoClient(f"mongodb://{mongo_cnt_id}:27017")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[kwargs['db_name']]
     stag_col = db[kwargs['collection_staging']]
@@ -238,14 +235,12 @@ def _wrangle_fr_death_data_in_mongodb(**kwargs):
             "year" : r['year'],
             "month" : r['month'],
             "region" : "Paris",
-            # convert totalDeaths to a string
-            "totaldeaths" :  str(r['totalDeaths'])
+            "totaldeaths" :  r['totalDeaths']
         }
         stag_col.insert_one(document)
         
 def _merge_death(**kwargs):
-    mongo_cnt_id = get_mongo_container_id()
-    client = MongoClient(f"mongodb://{mongo_cnt_id}:27017")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[kwargs['db_name']]
     ber_col = db[kwargs['ber_coll']]
@@ -260,8 +255,7 @@ def _merge_death(**kwargs):
 
 
 def _merge_deaths_and_temperatures():
-    mongo_cnt_id = get_mongo_container_id()
-    client = MongoClient(f"mongodb://{mongo_cnt_id}:27017")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client["temperature_deaths"]
 
@@ -280,8 +274,7 @@ def _merge_deaths_and_temperatures():
     
 
 def _create_postgres_insert_query():
-    mongo_cnt_id = get_mongo_container_id()
-    client = MongoClient(f"mongodb://{mongo_cnt_id}:27017")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
     db = client["temperature_deaths"]
     temp_death_coll = db["deaths_and_temperature"]
 
