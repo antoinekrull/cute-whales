@@ -272,9 +272,6 @@ def _merge_deaths_and_temperatures():
     temp_data = pd.DataFrame(list(temperature.find())).drop('_id', axis=1)
 
     merged_df = pd.merge(death_data, temp_data, on=["year", "month", "region"], how="inner")
-    column_names = list(merged_df.columns)
-    print("Column name:", column_names)
-    print("COLLECTION NAMES: " + str(db.list_collection_names()))
     if "deaths_and_temperature" not in db.list_collection_names():
         db.create_collection("deaths_and_temperature")
     
