@@ -49,9 +49,17 @@ def query_with_threshold(cursor, region, month, threshold):
     cursor.execute('''SELECT SUM(temperature) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     x_sum = cursor.fetchone()[0]
 
+    # Check if count_x is zero
+    if x_sum == None:
+        return "No data points meet the threshold."
+    
     cursor.execute('''SELECT SUM(totaldeaths) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     y_sum = cursor.fetchone()[0]
-
+    
+    # Check if sum_y is zero
+    if y_sum == None:
+        return "No data points meet the threshold."
+    
     cursor.execute('''SELECT SUM(temperature * temperature) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     x_squared_sum = cursor.fetchone()[0]
 
@@ -63,7 +71,9 @@ def query_with_threshold(cursor, region, month, threshold):
 
     cursor.execute('''SELECT SUM(temperature * totaldeaths) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     sum_xy_product = cursor.fetchone()[0]
-   
+
+
+
     # math function for the correlation
     try:
         correlation_coefficient = (count_x * sum_xy_product - (x_sum * y_sum)) / math.sqrt((count_x * x_squared_sum - x_sum * x_sum) * (count_x * y_squared_sum - y_sum * y_sum))
@@ -126,4 +136,4 @@ def visualization(threshold):
 
 
 if __name__ == "__main__":
-    visualization(None)
+    visualization(15)
