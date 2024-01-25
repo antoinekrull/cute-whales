@@ -11,7 +11,6 @@ import psycopg2
 import os
 import requests
 import glob 
-from multiprocessing import Pool
 
 #  constants
 TEMPERATURE_DATASET_PATH = "/opt/airflow/dags/data/ingestion/GlobalLandTemperaturesByMajorCity.json"
@@ -42,6 +41,8 @@ dag = DAG(
 )
 
 #  functions
+# TODO: comment the code ?
+# Function to get the ID of the MongoDB container
 def get_mongo_container_id():
     client = docker.from_env()
     containers = client.containers.list(filters={'name': 'cute-whales'})
@@ -317,6 +318,8 @@ def _clean_insert_file(**kwargs):
         print(f"{file_path} has been removed")
     else:
         print(f"{file_path} does not exist")
+
+    # TODO: Delete all files in staging folder, exept emptyfile.txt to?
 
     # Connect to MongoDB
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
