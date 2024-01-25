@@ -72,8 +72,6 @@ def query_with_threshold(cursor, region, month, threshold):
     cursor.execute('''SELECT SUM(temperature * totaldeaths) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     sum_xy_product = cursor.fetchone()[0]
 
-
-
     # math function for the correlation
     try:
         correlation_coefficient = (count_x * sum_xy_product - (x_sum * y_sum)) / math.sqrt((count_x * x_squared_sum - x_sum * x_sum) * (count_x * y_squared_sum - y_sum * y_sum))
