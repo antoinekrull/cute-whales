@@ -1,39 +1,25 @@
-# TODOS
-- [ ] **Everybody**: write report and debug the airflow tasks
-- [ ] **A, D**: fix airflow
-- [ ] **S**: plot information
-- [x] **A**: wrangle the temperature data, remove not needed colums. Format (year, month, region, temperature)
-- [x] **A**: finish all the operators in the dag
-- [x] **A**: wrangle berlin death data. Months need to be given from 01-12, and a Region colum. Format: (year, month, region, total deaths)
-- [x] **D**: wrangle the french data, count the number of names in given moths of given years. Format: (year, month, region, total deaths)
-- [x] merge deaths datasets to one death collection
-- [x] merge death data with temperature data. Format: (year, month (int), region, temperature, total deaths)
-- [x] save data to postgres on format: (year, month (int), region, temperature, total deaths)
-
 # cute-whales
 A project for the data engneering class at INSA Lyon.
-
-### Presentation
-[Click here to go to the presentation](https://docs.google.com/presentation/d/12xfPM80ctExFdAcWCe8rlZORFldNV17-NuSUiB61aXw/edit?usp=sharing)
 
 ## Get started
 1. make sure Docker Desktop is running.
 2. run `mkdir -p ./dags ./logs ./plugins ./config` and `echo -e "AIRFLOW_UID=$(id -u)" > .env`
 3. Run `docker-compose up airflow-init` run database migrations and create the first user account.
 4. Build and run the environment using the `docker-compose up` command.
-5. Connect to the airflow dashboard [localhost:8080](http://localhost:8080/), where user and password is `airflow`
-6. Add a connection to the postgres SQL database. Navigate To the Admin -> Connections menu, then click the blue + button to add a new connection.
-After it is up, add a new connection:
+5. In a new terminal, run `docker ps` to get the mongo container id and copy this.
+6. In the dag.py file on line 25, paste your mongo container id.
+7. Connect to the airflow dashboard [localhost:8080](http://localhost:8080/), where user and password is `airflow`
+8. Add a connection to the postgres SQL database. Navigate To the Admin -> Connections menu, then click the blue + button to add a new connection.
 
 After it is up, add a new connection:
 
 * Name - postgres_default
 * Conn type - postgres
-* Host - localhost
+* Host - db
 * Port - 5432
-* Database - airflow
-* Username - airflow
-* Password - airflow
+* Database - postgres
+* Username - test
+* Password - test
 
 
 # Project presentation
@@ -52,21 +38,6 @@ Our data will be structured something like this, with an example:
 | value  | value   | value  | value   | value  |
 | 2020  | July   | 204   | Paris   | 40 (celsius)   |
 | 2018  | September   | 178   | Berlin   | 19 (celsius)   |
-
-The vislualization will :
-```mermaid
-flowchart LR
-    t1((1°- 5°)) -- Berlin, April, 2020 --> d1((117))
-    t1((1°- 5°)) -- Paris, Mars, 2018 --> d2((57))
-    t2((6°-10)) -- Berlin, October, 2015 --> d3((87))
-    t3((11°-15°)) -- Paris, April, 2021 --> d1((117))
-    t4((16°-20°)) --Berlin, May, 2018 --> d4((158))
-    t5((21°-25°)) -- Paris, May, 2019 --> d4((158)) 
-    t3((11°-15°)) -- Paris, October, 2016 --> d3((87))
-    t4((16°-20°)) -- Berlin, June, 2017 --> d5((27))
-    t6((26°-30°)) -- Paris, December, 2022 --> d6((1))
-    t7((31°-35°)) -- Paris, July, 2019 --> d1((117))
-```
 
 ## Data sources
 The project utilises three different datasources:
