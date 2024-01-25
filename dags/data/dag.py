@@ -7,6 +7,10 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 import pandas as pd
 from pymongo import MongoClient
+import psycopg2
+import os
+import requests
+import glob 
 
 #  constants
 TEMPERATURE_DATASET_PATH = "/opt/airflow/dags/data/ingestion/GlobalLandTemperaturesByMajorCity.json"
@@ -141,14 +145,12 @@ def _import_temperature_csv_to_mongodb(db_name, collection_name):
     
             
 def _fr_get_death_files_list():
-    import requests
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'w') as f:
         resources = requests.get(FR_DEATH_DATASET_URL).json()['resources']
         for r in resources:
             f.write(r['latest']+ '\n')
 
 def _fr_get_all_death_files():
-    import requests
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'r') as f:
         for i, line in enumerate(f): 
             with open(f'{FR_DEATH_INGESTION_DATA_PATH}data{i}.txt', 'w') as f1:
@@ -162,7 +164,6 @@ def _fr_get_all_death_files():
                         print(f"In file {i} occured an decoding error")
 
 def _fr_collect_specific_location_data():
-    import glob
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
     for f in files:
@@ -278,6 +279,14 @@ def _create_postgres_insert_query():
     db = client["temperature_deaths"]
     temp_death_coll = db["deaths_and_temperature"]
 
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(database="postgres", user="test", password="test", host="db", port="5432")
+    cur = conn.cursor()
+
+    # Fetch all existing records from PostgreSQL
+    cur.execute("SELECT year, month, region, totaldeaths, temperature FROM deaths_and_temperature")
+    existing_records = set(cur.fetchall())
+
     data = list(temp_death_coll.find())
     column_names = list(data[0].keys())
     print("Column name:", column_names)
@@ -285,10 +294,32 @@ def _create_postgres_insert_query():
     for document in data:
         #  TODO: quick fix for empty deaths in doc, needs to be fixed
         if document["totaldeaths"] != "":
-            query += f"INSERT INTO deaths_and_temperature (year, month, region, totaldeaths, temperature) VALUES ({document['year']}, {document['month']}, '{document['region']}', {document['totaldeaths']}, {document['temperature']}) ON CONFLICT DO NOTHING;\n"
-    
+        # Create a tuple representing the current document
+            doc_tuple = (document['year'], document['month'], document['region'], document['totaldeaths'], document['temperature'])
+
+            # Only create an insert query if the document isn't already in PostgreSQL
+            if doc_tuple not in existing_records:
+                query += f"INSERT INTO deaths_and_temperature (year, month, region, totaldeaths, temperature) VALUES {doc_tuple} ON CONFLICT DO NOTHING;\n"
+   
     #  TODO: dont forget to delete afterwards
     with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
+
+def _clean_insert_file(**kwargs):
+    # delete insert-query file for postgres
+    file_path = "/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql"
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        print(f"{file_path} has been removed")
+    else:
+        print(f"{file_path} does not exist")
+
+    # Connect to MongoDB
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
+    db = client[kwargs['db_name']]
+
+    # Delete the 'deaths' collection
+    db.deaths.drop()
+    print("The 'deaths' collection has been removed")
 
 
 #  operator definition
@@ -432,8 +463,17 @@ store_death_and_temp_in_postgres = PostgresOperator(
         autocommit=True,
     )
 
+clean_insert_data = PythonOperator(
+            task_id='clean_insert_data',
+            dag=dag,
+            python_callable=_clean_insert_file,
+            op_kwargs={'mongo_port': 27017, 'db_name': "temperature_deaths"},
+            trigger_rule='all_success',
+            depends_on_past=False,
+        )
+
 start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> import_temperature_csv_to_mongodb
 fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
-[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_death_and_temp_in_postgres
+[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_death_and_temp_in_postgres >> clean_insert_data
