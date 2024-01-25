@@ -11,6 +11,7 @@ import psycopg2
 import os
 import requests
 import glob 
+from multiprocessing import Pool
 
 #  constants
 TEMPERATURE_DATASET_PATH = "/opt/airflow/dags/data/ingestion/GlobalLandTemperaturesByMajorCity.json"
@@ -142,8 +143,7 @@ def _import_temperature_csv_to_mongodb(db_name, collection_name):
                 "temperature": split_row[1],
             }
             collection.insert_one(document)
-    
-            
+
 def _fr_get_death_files_list():
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'w') as f:
         resources = requests.get(FR_DEATH_DATASET_URL).json()['resources']
@@ -153,29 +153,32 @@ def _fr_get_death_files_list():
 def _fr_get_all_death_files():
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'r') as f:
         for i, line in enumerate(f): 
-            with open(f'{FR_DEATH_INGESTION_DATA_PATH}data{i}.txt', 'w') as f1:
-                try:
-                    res= requests.get(line.strip())
-                    f1.write(res.content.decode('UTF-8'))
-                    #time.sleep(1)
-                except(UnicodeEncodeError):
-                        print(f"In file {i} occured an encoding error")
-                except(UnicodeDecodeError):
-                        print(f"In file {i} occured an decoding error")
+            filename = f'{FR_DEATH_INGESTION_DATA_PATH}data{i}.txt'
+            if not os.path.exists(filename):
+                with open(filename, 'w') as f1:
+                    try:
+                        res = requests.get(line.strip())
+                        f1.write(res.content.decode('UTF-8'))
+                    except UnicodeEncodeError:
+                        print(f"In file {i} occurred an encoding error")
+                    except UnicodeDecodeError:
+                        print(f"In file {i} occurred a decoding error")
 
 def _fr_collect_specific_location_data():
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
+    data = []
     for f in files:
         print(f"In file {f}")
         with open(f, 'r') as f2:
             for line in f2:
                 death_location = line[162:167]
                 if (death_location[:2] == location):
-                    with open(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt','a') as f3:
-                            name = line[:80].strip().strip('/').replace('*', ' ')
-                            death_date = line[154:162]
-                            f3.write(f'{name}, {death_date}, {death_location} \n')
+                    name = line[:80].strip().strip('/').replace('*', ' ')
+                    death_date = line[154:162]
+                    data.append(f'{name}, {death_date}, {death_location} \n')
+    with open(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt','w') as f3:
+        f3.writelines(data)
 
 def _fr_death_data_to_csv():
     account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt', header= None)
@@ -188,6 +191,7 @@ def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
     db = client[db_name]
     collection = db[collection_name]
 
+    documents = []
     with open("/opt/airflow/dags/data/staging/ParisDeathData.csv", 'r') as file:
         # skip row with column titles
         lines = file.readlines()
@@ -199,7 +203,8 @@ def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
                 "Month": split_row[1][4:6],
                 "Location": "Paris",
             }
-            collection.insert_one(document)
+            documents.append(document)
+    collection.insert_many(documents)
 
 def _wrangle_fr_death_data_in_mongodb(**kwargs):
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
@@ -320,6 +325,16 @@ def _clean_insert_file(**kwargs):
     # Delete the 'deaths' collection
     db.deaths.drop()
     print("The 'deaths' collection has been removed")
+
+    # TODO: maybe use this?
+    # # Get a list of all collections in the database
+    # collections = db.list_collection_names()
+
+    # # Drop each collection
+    # for collection in collections:
+    #     db[collection].drop()
+
+    # print("All collections in the database have been removed")
 
 
 #  operator definition
