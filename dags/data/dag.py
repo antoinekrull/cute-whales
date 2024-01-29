@@ -4,6 +4,8 @@ import docker
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python_operator import BranchPythonOperator
+from airflow.utils.trigger_rule import TriggerRule
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 import pandas as pd
 from pymongo import MongoClient
@@ -11,6 +13,7 @@ import psycopg2
 import os
 import requests
 import glob 
+import numpy as np
 
 #  constants
 TEMPERATURE_DATASET_PATH = "/opt/airflow/dags/data/ingestion/GlobalLandTemperaturesByMajorCity.json"
@@ -59,9 +62,8 @@ def _import_clean_temperature_data():
     temperature_data["dt"] = pd.to_datetime(temperature_data["dt"])
     temperature_data = temperature_data.drop(columns={"AverageTemperatureUncertainty", "Latitude", "Longitude", "Country"})
     temperature_data = temperature_data.rename(columns={"dt": "datetime"})
-    #  replaces empty AT fields with 0
-    #  TODO: think of smarter value
-    temperature_data['AverageTemperature'].replace('', 5, inplace=True)
+    temperature_data['AverageTemperature'].replace('', np.nan, inplace=True)
+    temperature_data.dropna(subset=['AverageTemperature'], inplace=True)
 
     start_date = pd.to_datetime("1980-01-01")
     #  drops all entries before 'start_date'
@@ -180,7 +182,6 @@ def _fr_collect_specific_location_data():
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
     data = []
     for f in files:
-        print(f"In file {f}")
         with open(f, 'r') as f2:
             for line in f2:
                 death_location = line[162:167]
@@ -297,6 +298,21 @@ def _merge_deaths_and_temperatures():
     
     db["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
 
+def _drop_postgres_table():
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(database="postgres", user="test", password="test", host="db", port="5432")
+    cur = conn.cursor()
+
+    cur.execute("DROP TABLE IF EXISTS deaths_and_temperature")
+
+    # Commit the changes to PostgreSQL
+    conn.commit()
+
+    # Close connections
+    cur.close()
+    conn.close()
+
+        
 # Function to create an SQL insert query for the merged death and temperature data and write it to a file.
 # Cleaning: removing any records that already exist in the PostgreSQL database.
 def _create_postgres_insert_query():
@@ -310,14 +326,11 @@ def _create_postgres_insert_query():
 
     # Fetch all existing records from PostgreSQL
     cur.execute("SELECT year, month, region, totaldeaths, temperature FROM deaths_and_temperature")
-    existing_records = set(cur.fetchall())
+    existing_records = cur.fetchall()
 
     data = list(temp_death_coll.find())
-    column_names = list(data[0].keys())
-    print("Column name:", column_names)
     query = ""
     for document in data:
-        #  TODO: quick fix for empty deaths in doc, needs to be fixed
         if document["totaldeaths"] != "":
         # Create a tuple representing the current document
             doc_tuple = (document['year'], document['month'], document['region'], document['totaldeaths'], document['temperature'])
@@ -325,9 +338,25 @@ def _create_postgres_insert_query():
             # Only create an insert query if the document isn't already in PostgreSQL
             if doc_tuple not in existing_records:
                 query += f"INSERT INTO deaths_and_temperature (year, month, region, totaldeaths, temperature) VALUES {doc_tuple} ON CONFLICT DO NOTHING;\n"
-   
-    with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
 
+    # Commit the changes to PostgreSQL
+    conn.commit()
+
+    # Close connections
+    cur.close()
+    conn.close()
+
+    with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
+    
+
+# Function checking if there are new lines to insert into the postgres
+def _check_sql_file(**context):
+    with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "r") as file:
+        if file.read().strip() == '':
+            return "skip_postgres_operator"
+        else:
+            return "store_death_and_temp_in_postgres"
+        
 # Function to clean up after the data pipeline has run.
 def _clean_after_pipeline(**kwargs):
     # delete insert-query file for postgres
@@ -354,20 +383,12 @@ def _clean_after_pipeline(**kwargs):
     # Connect to MongoDB
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
     db = client[kwargs['db_name']]
+    collections = db.list_collection_names()
 
-    # Delete the 'deaths' collection
-    db.deaths.drop()
-    print("The 'deaths' collection has been removed")
-
-    # TODO: maybe use this?
-    # # Get a list of all collections in the database
-    # collections = db.list_collection_names()
-
-    # # Drop each collection
-    # for collection in collections:
-    #     db[collection].drop()
-
-    # print("All collections in the database have been removed")
+    # Drop each collection
+    for collection in collections:
+        db[collection].drop()
+    print("All collections in the database have been removed")
 
 
 #  Operator definition
@@ -493,6 +514,15 @@ merge_deaths_and_temperatures = PythonOperator(
         depends_on_past=False,
     )
 
+drop_postgres_table = PythonOperator(
+    task_id='drop_postgres_table', 
+    dag=dag, 
+    python_callable=_drop_postgres_table, 
+    op_kwargs={}, 
+    trigger_rule='all_success', 
+    depends_on_past=False,
+)
+
 create_postgres_insert_query = PythonOperator(
         task_id='create_postgres_insert_query',
         dag=dag,
@@ -502,26 +532,39 @@ create_postgres_insert_query = PythonOperator(
         depends_on_past=False,
     )
 
+# check_sql_file_operator = BranchPythonOperator(
+#     task_id='check_sql_file',
+#     python_callable=_check_sql_file,
+#     provide_context=True,
+#     dag=dag
+# )
+
 store_death_and_temp_in_postgres = PostgresOperator(
-        task_id='store_death_and_temp_in_postgres',
-        dag=dag,
-        postgres_conn_id='postgres_db',
-        sql='sql/temp/death_and_temp_insert.sql',
-        trigger_rule='none_failed',
-        autocommit=True,
-    )
+    task_id='store_death_and_temp_in_postgres',
+    dag=dag,
+    postgres_conn_id='postgres_db',
+    sql='sql/temp/death_and_temp_insert.sql',
+    trigger_rule='none_failed',
+    autocommit=True,
+)
+
+# skip_postgres_operator = DummyOperator(
+#     task_id='skip_postgres_operator',
+#     dag=dag,
+#     trigger_rule=TriggerRule.ONE_SUCCESS
+# )
 
 clean_after_pipeline = PythonOperator(
-            task_id='clean_insert_data',
-            dag=dag,
-            python_callable=_clean_after_pipeline,
-            op_kwargs={'mongo_port': 27017, 'db_name': "temperature_deaths"},
-            trigger_rule='all_success',
-            depends_on_past=False,
-        )
+    task_id='clean_insert_data',
+    dag=dag,
+    python_callable=_clean_after_pipeline,
+    op_kwargs={'mongo_port': 27017, 'db_name': "temperature_deaths"},
+    trigger_rule=TriggerRule.ALL_DONE,
+    depends_on_past=False,
+)
 
 start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> import_temperature_csv_to_mongodb
 fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
-[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_death_and_temp_in_postgres >> clean_after_pipeline
+[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> drop_postgres_table >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_death_and_temp_in_postgres >> clean_after_pipeline
