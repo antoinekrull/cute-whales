@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS deaths_and_temperature (
-                            year CHAR,
-                            month CHAR,
-                            region CHAR,
-                            "total deaths" INTEGER,
+                            year VARCHAR,
+                            month VARCHAR,
+                            region VARCHAR,
+                            totaldeaths INTEGER,
                             temperature DOUBLE PRECISION
                         );

@@ -1,24 +1,32 @@
 import datetime
 import airflow
+import docker
 from airflow import DAG
-from airflow.operators.bash_operator import BashOperator
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python_operator import BranchPythonOperator
+from airflow.utils.trigger_rule import TriggerRule
 from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.utils.task_group import TaskGroup
 import pandas as pd
 from pymongo import MongoClient
+import psycopg2
+import os
+import requests
+import glob 
+import numpy as np
 
 #  constants
-TEMPERATURE_DATASET_PATH = "./ingestion/GlobalLandTemperaturesByMajorCity.json"
-DEATH_BERLIN_DATASET_PATH = "./ingestion/deaths_berlin.csv"
-DEATH_BERLIN_CLEAN_DATASET_PATH = "./staging/deaths_berlin.csv"
-TEMPERATURE_CLEAN_DATASET_PATH = "./staging/GlobalLandTemperaturesByMajorCity.csv"
+TEMPERATURE_DATASET_PATH = "/opt/airflow/dags/data/ingestion/GlobalLandTemperaturesByMajorCity.json"
+DEATH_BERLIN_DATASET_PATH = "/opt/airflow/dags/data/ingestion/deaths_berlin.csv"
+DEATH_BERLIN_CLEAN_DATASET_PATH = "/opt/airflow/dags/data/staging/deaths_berlin.csv"
+TEMPERATURE_CLEAN_DATASET_PATH = "/opt/airflow/dags/data/staging/GlobalLandTemperaturesByMajorCity.csv"
 FR_DEATH_DATASET_URL = 'https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5'
-FR_DEATH_INGESTION_DATA_PATH = './ingestion/fr/'
-FR_DEATH_CLEAN_DATA_PATH = './staging/'
+FR_DEATH_INGESTION_DATA_PATH = '/opt/airflow/dags/data/ingestion/fr/'
+FR_DEATH_CLEAN_DATA_PATH = '/opt/airflow/dags/data/staging/'
+
 PARIS_GEOGRAPHIC_CODE = '75'
 MONGODB_IP = "127.0.0.1"
+MONGO_CONTAINER_ID = "33990dd2988d"
 
 #  DAG definition
 default_args_dict = {
@@ -36,17 +44,26 @@ dag = DAG(
     template_searchpath=['/opt/airflow/dags/']
 )
 
-#  functions
+#  Functions:
+
+# Function to get the ID of the MongoDB container
+def get_mongo_container_id():
+    client = docker.from_env()
+    containers = client.containers.list(filters={'name': 'cute-whales'})
+    for container in containers:
+        if 'mongo' in container.name.lower():
+            return container.id
+
+# Fuction to import the data from .json-file, wrangle it and write it to .csv-file.
+# Cleaning: converting date strings to datetime, dropping unnecessary columns, 
+# filtering data to include only dates after January 1, 1980, and cities Berlin and Paris
 def _import_clean_temperature_data():
     temperature_data = pd.read_json(TEMPERATURE_DATASET_PATH)
     temperature_data["dt"] = pd.to_datetime(temperature_data["dt"])
     temperature_data = temperature_data.drop(columns={"AverageTemperatureUncertainty", "Latitude", "Longitude", "Country"})
     temperature_data = temperature_data.rename(columns={"dt": "datetime"})
-    #  replaces empty AT fields with 0
-    #  TODO: think of smarter value
-    temperature_data['AverageTemperature'].replace('', 0, inplace=True)
-    #  i am not sure why this is not working correctly
-    #  temperature_data.round({"AverageTemperature": 2})
+    temperature_data['AverageTemperature'].replace('', np.nan, inplace=True)
+    temperature_data.dropna(subset=['AverageTemperature'], inplace=True)
 
     start_date = pd.to_datetime("1980-01-01")
     #  drops all entries before 'start_date'
@@ -58,30 +75,36 @@ def _import_clean_temperature_data():
 
     temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1", index=False)
 
+# Function import clean Berlin-death data to .csv-file.
 def _ber_import_clean_death_data():
-    death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH)
+    death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH, encoding='ISO-8859-1')
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
+# Function writing Berlin-death from .csv-file to Mongo-collection.
 def _import_ber_deaths_csv_to_mongodb(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongodb_port']}")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[kwargs['db_name']]
     collection = db[kwargs['collection_name']]
 
-    with open(kwargs['csv_file'], 'r') as file:
+    with open(DEATH_BERLIN_CLEAN_DATASET_PATH, 'r', encoding='ISO-8859-1') as file:
         lines = file.readlines()
         #  skips the first 6 lines because of unnecessary information
         for row in lines[6:]:
             split_row = row.split(";")
+            #  skips rows who are lacking data
+            if '...' in split_row[2]:
+                break
             document = {
                 "year": split_row[0],
                 "month": get_number_of_month(split_row[1]),
                 "region": "Berlin",
                 #  drops the "\n" at the end of the total number
-                "total deaths": str(split_row[4][:-2])
+                "totaldeaths": split_row[4][:-3]
             }
             collection.insert_one(document)
     
+# Help-function to get the number of the month from the month name
 def get_number_of_month(month):
     if month == "Januar" or month == "01":
         return "01"
@@ -108,13 +131,14 @@ def get_number_of_month(month):
     else:
         return "12"
 
-def _import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
+# Function writing temperature data from .csv-file to Mongo-collection.
+def _import_temperature_csv_to_mongodb(db_name, collection_name):
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[db_name]
     collection = db[collection_name]
 
-    with open(csv_file, 'r') as file:
+    with open(TEMPERATURE_CLEAN_DATASET_PATH, 'r', encoding='ISO-8859-1') as file:
         lines = file.readlines()
         for row in lines:
             split_row = row.split(",")
@@ -128,54 +152,63 @@ def _import_temperature_csv_to_mongodb(mongodb_port, csv_file, db_name, collecti
                 "temperature": split_row[1],
             }
             collection.insert_one(document)
-            
+
+# Function to get all the URLs of the French death-data files and write to a .txt-file.
 def _fr_get_death_files_list():
-    import requests
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'w') as f:
         resources = requests.get(FR_DEATH_DATASET_URL).json()['resources']
         for r in resources:
             f.write(r['latest']+ '\n')
 
+# Function to download all the French death data files from the URLs in the .txt-file and save them as separate .txt files.
 def _fr_get_all_death_files():
-    import requests
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'r') as f:
         for i, line in enumerate(f): 
-            with open(f'{FR_DEATH_INGESTION_DATA_PATH}data{i}.txt', 'w') as f1:
-                try:
-                    res= requests.get(line.strip())
-                    f1.write(res.content.decode('UTF-8'))
-                    #time.sleep(1)
-                except(UnicodeEncodeError):
-                        print(f"In file {i} occured an encoding error")
-                except(UnicodeDecodeError):
-                        print(f"In file {i} occured an decoding error")
+            filename = f'{FR_DEATH_INGESTION_DATA_PATH}data{i}.txt'
+            if not os.path.exists(filename):
+                with open(filename, 'w') as f1:
+                    try:
+                        res = requests.get(line.strip())
+                        f1.write(res.content.decode('UTF-8'))
+                    except UnicodeEncodeError:
+                        print(f"In file {i} occurred an encoding error")
+                    except UnicodeDecodeError:
+                        print(f"In file {i} occurred a decoding error")
 
+# Function to collect specific location data (Paris) from French death-data files, and write the data to a new .txt-file.
+# Cleaning: filtering for records where the death location matches the Paris geographic code.
 def _fr_collect_specific_location_data():
-    import glob
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
-    for _ in files:
-        with open(f'{FR_DEATH_INGESTION_DATA_PATH}f', 'r') as f2:
+    data = []
+    for f in files:
+        with open(f, 'r') as f2:
             for line in f2:
                 death_location = line[162:167]
                 if (death_location[:2] == location):
-                    with open(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt','a') as f3:
-                            name = line[:80].strip().strip('/').replace('*', ' ')
-                            death_date = line[154:162]
-                            f3.write(f'{name}, {death_date}, {death_location} \n')
+                    name = line[:80].strip().strip('/').replace('*', ' ')
+                    death_date = line[154:162]
+                    data.append(f'{name}, {death_date}, {death_location} \n')
+    with open(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt','w') as f3:
+        f3.writelines(data)
 
+# Function to convert the collected French death-data from a .txt-file to a .csv-file.
+# Cleaning: assigning column names to the data.
 def _fr_death_data_to_csv():
-    account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}', header= None)
+    account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt', header= None)
     account.columns = ['Name', 'Date of death', 'Location of Death']
     account.to_csv(f'{FR_DEATH_CLEAN_DATA_PATH}ParisDeathData.csv', index= None)
 
-def _import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection_name):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{mongodb_port}")
+# Function to import the French death data from a .csv-file to a Mongo collection.
+# Cleaning: splitting each row into separate fields and creating a document for each row.
+def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[db_name]
     collection = db[collection_name]
 
-    with open(csv_file, 'r') as file:
+    documents = []
+    with open("/opt/airflow/dags/data/staging/ParisDeathData.csv", 'r') as file:
         # skip row with column titles
         lines = file.readlines()
         for row in lines[1:]:
@@ -183,13 +216,16 @@ def _import_fr_deaths_csv_to_mongodb(mongodb_port, csv_file, db_name, collection
             document = {
                 "Name": split_row[0],
                 "Year": split_row[1][:4],
-                "Month": split_row[2],
+                "Month": split_row[1][4:6],
                 "Location": "Paris",
             }
-            collection.insert_one(document)
+            documents.append(document)
+    collection.insert_many(documents)
 
+# Function to wrangle the French death-data in a Mongo-collection.
+# Cleaning: aggregating the number of deaths for each month of each year and inserting the results as separate documents in the staging collection.
 def _wrangle_fr_death_data_in_mongodb(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[kwargs['db_name']]
     stag_col = db[kwargs['collection_staging']]
@@ -223,12 +259,14 @@ def _wrangle_fr_death_data_in_mongodb(**kwargs):
             "year" : r['year'],
             "month" : r['month'],
             "region" : "Paris",
-            "total deaths" :  r['totalDeaths']
+            "totaldeaths" :  r['totalDeaths']
         }
         stag_col.insert_one(document)
-        
+
+# Function to merge the Berlin and Paris death data in a MongoDB database.
+# Cleaning: combining the two collections into a single collection.
 def _merge_death(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client[kwargs['db_name']]
     ber_col = db[kwargs['ber_coll']]
@@ -241,94 +279,119 @@ def _merge_death(**kwargs):
     merge_col.insert_many(list(ber_res))
     merge_col.insert_many(list(fr_res))
 
-def _merge_deaths_and_temperatures(**kwargs):
-    client = MongoClient(f"mongodb://{MONGODB_IP}:{kwargs['mongo_port']}")
+# Function to merge the death data and temperature data in a MongoDB database.
+# Cleaning: merging the two collections on the year, month, and region fields and saving the result in a new collection.
+def _merge_deaths_and_temperatures():
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
     db = client["temperature_deaths"]
+
     deaths = db["deaths"]
-    temp_and_death = db["temp_and_death"]
+    temperature = db["temperature"]
+    
+    death_data = pd.DataFrame(list(deaths.find())).drop('_id', axis=1)
+    temp_data = pd.DataFrame(list(temperature.find())).drop('_id', axis=1)
 
-    pipeline = [
-        {
-            '$lookup': {
-                'from': "temperature",
-                'localField': "year",
-                'foreignField': "year",
-                'as': "temperatureData"
-            }
-        },
-        {
-            '$unwind': {
-                'path': "$temperatureData",
-                'preserveNullAndEmptyArrays': True
-            }
-        },
-        {
-            '$project': {
-                'year': 1,
-                'month': 1,
-                'region': 1,
-                'totalDeaths': 1,
-                'temperature': "$temperatureData.temperature"
-            }
-        },
-        {
-            '$merge': {
-                'into': "temp_and_death",
-                'whenMatched': "merge",
-                'whenNotMatched': "insert"
-            }
-        }
-    ]
+    merged_df = pd.merge(death_data, temp_data, on=["year", "month", "region"], how="inner")
+    if "deaths_and_temperature" not in db.list_collection_names():
+        db.create_collection("deaths_and_temperature")
+    
+    db["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
 
-    result = list(deaths.aggregate(pipeline))
-    for r in result:
-            document = {
-                "year" : r['year'],
-                "month" : r['month'],
-                "region" : r['region'],
-                "total deaths" :  r['totalDeaths'],
-                "temperature" : r['temperature']
-            }
-            temp_and_death.insert_one(document)
+def _drop_postgres_table():
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(database="postgres", user="test", password="test", host="db", port="5432")
+    cur = conn.cursor()
 
-    def _merge_deaths_and_temperatures():
-        client = MongoClient("mongodb://127.0.0.1:27017")
+    cur.execute("DROP TABLE IF EXISTS deaths_and_temperature")
 
-        db_deaths = client["death_db"]
-        db_temp = client["temperature_db"]
+    # Commit the changes to PostgreSQL
+    conn.commit()
 
-        deaths = db_deaths["deaths"]
-        temperature = db_temp["temperature"]
+    # Close connections
+    cur.close()
+    conn.close()
+
         
-        death_data = pd.DataFrame(list(deaths.find())).drop('_id', axis=1)
-        temp_data = pd.DataFrame(list(temperature.find())).drop('_id', axis=1)
+# Function to create an SQL insert query for the merged death and temperature data and write it to a file.
+# Cleaning: removing any records that already exist in the PostgreSQL database.
+def _create_postgres_insert_query():
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
+    db = client["temperature_deaths"]
+    temp_death_coll = db["deaths_and_temperature"]
 
-        merged_df = pd.merge(death_data, temp_data, on=["year", "month", "region"], how="inner")
-        
-        if "deaths_and_temperature" not in db_deaths.list_collection_names():
-            db_deaths.create_collection("deaths_and_temperature")
-        
-        db_deaths["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(database="postgres", user="test", password="test", host="db", port="5432")
+    cur = conn.cursor()
 
-    def _create_postgres_insert_query():
-        client = MongoClient("mongodb://127.0.0.1:27017")
-        db_deaths = client["death_db"]
-        temp_death_coll = db_deaths["deaths_and_temperature"]
+    # Fetch all existing records from PostgreSQL
+    cur.execute("SELECT year, month, region, totaldeaths, temperature FROM deaths_and_temperature")
+    existing_records = cur.fetchall()
 
-        data = list(temp_death_coll.find())
-        
-        for document in data:
-            query += f"INSERT INTO deaths_and_temperature ('{document['year']}',\
-                                                            '{document['month']}',\
-                                                            '{document['region']}',\
-                                                            '{document['total deaths']}',\
-                                                            '{document['temperature']}') ON CONFLICT DO NOTHING;\n"
-        
-        #  TODO: dont forget to delete afterwards
-        with open("dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
+    data = list(temp_death_coll.find())
+    query = ""
+    for document in data:
+        if document["totaldeaths"] != "":
+        # Create a tuple representing the current document
+            doc_tuple = (document['year'], document['month'], document['region'], document['totaldeaths'], document['temperature'])
 
-#  operator definition
+            # Only create an insert query if the document isn't already in PostgreSQL
+            if doc_tuple not in existing_records:
+                query += f"INSERT INTO deaths_and_temperature (year, month, region, totaldeaths, temperature) VALUES {doc_tuple} ON CONFLICT DO NOTHING;\n"
+
+    # Commit the changes to PostgreSQL
+    conn.commit()
+
+    # Close connections
+    cur.close()
+    conn.close()
+
+    with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
+    
+
+# Function checking if there are new lines to insert into the postgres
+def _check_sql_file(**context):
+    with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "r") as file:
+        if file.read().strip() == '':
+            return "skip_postgres_operator"
+        else:
+            return "store_death_and_temp_in_postgres"
+        
+# Function to clean up after the data pipeline has run.
+def _clean_after_pipeline(**kwargs):
+    # delete insert-query file for postgres
+    file_path_sql = "/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql"
+    if os.path.exists(file_path_sql):
+        os.remove(file_path_sql)
+        print(f"{file_path_sql} has been removed")
+    else:
+        print(f"{file_path_sql} does not exist")
+
+    #  deleting the content of the staging folder
+    staging_path = "/opt/airflow/dags/data/staging/"
+
+    for filename in os.listdir(staging_path):
+        file_path = os.path.join(staging_path, filename)
+
+        #  is needed for git to track the stagingfolder
+        if filename == "emptyfile.txt":
+            continue
+
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+    # Connect to MongoDB
+    client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
+    db = client[kwargs['db_name']]
+    collections = db.list_collection_names()
+
+    # Drop each collection
+    for collection in collections:
+        db[collection].drop()
+    print("All collections in the database have been removed")
+
+
+#  Operator definition
 start = DummyOperator(
         task_id='start',
         dag=dag,
@@ -356,7 +419,7 @@ import_ber_death_data_to_mongodb = PythonOperator(
             task_id='import_ber_deaths_to_mongodb',
             dag=dag,
             python_callable=_import_ber_deaths_csv_to_mongodb,
-            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "ber_deaths", 'csv_file': "./staging/deaths_berlin.csv"},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "ber_deaths"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
@@ -365,7 +428,7 @@ import_temperature_csv_to_mongodb = PythonOperator(
             task_id='import_temperature_to_mongodb',
             dag=dag,
             python_callable=_import_temperature_csv_to_mongodb,
-            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "temperature", 'csv_file': "./staging/GlobalLandTemperaturesByMajorCity.csv"},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "temperature"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
@@ -410,7 +473,7 @@ import_fr_deaths_csv_to_mongodb = PythonOperator(
             task_id='import_fr_deaths_csv_to_mongodb',
             dag=dag,
             python_callable=_import_fr_deaths_csv_to_mongodb,
-            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "fr_deaths", 'csv_file': "./staging/ParisDeathData.csv"},
+            op_kwargs={'mongodb_port': 27017, 'db_name': "temperature_deaths", 'collection_name': "fr_deaths"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
@@ -428,7 +491,7 @@ merge_death = PythonOperator(
             task_id='merge_death',
             dag=dag,
             python_callable=_merge_death,
-            op_kwargs={'mongo_port': 27017, 'db_name':  "temperature_deaths", 'ber_coll' : "ber_deaths", 'par_coll' : "fr_deaths", 'merge_coll' : "deaths"},
+            op_kwargs={'mongo_port': 27017, 'db_name':  "temperature_deaths", 'ber_coll' : "ber_deaths", 'par_coll' : "fr_deaths_clean", 'merge_coll' : "deaths"},
             trigger_rule='all_success',
             depends_on_past=False,
         )
@@ -436,23 +499,72 @@ merge_death = PythonOperator(
 create_death_and_temp_table = PostgresOperator(
         task_id='create_death_and_temp_table',
         dag=dag,
-        postgres_conn_id='postgres_default',
+        postgres_conn_id='postgres_db',
         sql='sql/create_death_and_temp_table.sql',
         trigger_rule='none_failed',
         autocommit=True,
     )
 
-store_death_and_temp_in_postgres = PostgresOperator(
-        task_id='store_death_and_temp_in_postgres',
+merge_deaths_and_temperatures = PythonOperator(
+        task_id='merge_deaths_and_temperatures',
         dag=dag,
-        postgres_conn_id='postgres_default',
-        sql='sql/temp/death_and_temp_insert.sql',
-        trigger_rule='none_failed',
-        autocommit=True,
+        python_callable=_merge_deaths_and_temperatures,
+        op_kwargs={},
+        trigger_rule='all_success',
+        depends_on_past=False,
     )
+
+drop_postgres_table = PythonOperator(
+    task_id='drop_postgres_table', 
+    dag=dag, 
+    python_callable=_drop_postgres_table, 
+    op_kwargs={}, 
+    trigger_rule='all_success', 
+    depends_on_past=False,
+)
+
+create_postgres_insert_query = PythonOperator(
+        task_id='create_postgres_insert_query',
+        dag=dag,
+        python_callable=_create_postgres_insert_query,
+        op_kwargs={},
+        trigger_rule='all_success',
+        depends_on_past=False,
+    )
+
+# check_sql_file_operator = BranchPythonOperator(
+#     task_id='check_sql_file',
+#     python_callable=_check_sql_file,
+#     provide_context=True,
+#     dag=dag
+# )
+
+store_death_and_temp_in_postgres = PostgresOperator(
+    task_id='store_death_and_temp_in_postgres',
+    dag=dag,
+    postgres_conn_id='postgres_db',
+    sql='sql/temp/death_and_temp_insert.sql',
+    trigger_rule='none_failed',
+    autocommit=True,
+)
+
+# skip_postgres_operator = DummyOperator(
+#     task_id='skip_postgres_operator',
+#     dag=dag,
+#     trigger_rule=TriggerRule.ONE_SUCCESS
+# )
+
+clean_after_pipeline = PythonOperator(
+    task_id='clean_insert_data',
+    dag=dag,
+    python_callable=_clean_after_pipeline,
+    op_kwargs={'mongo_port': 27017, 'db_name': "temperature_deaths"},
+    trigger_rule=TriggerRule.ALL_DONE,
+    depends_on_past=False,
+)
 
 start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list] 
 get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> import_temperature_csv_to_mongodb
 fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
-[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> store_death_and_temp_in_postgres
+[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> drop_postgres_table >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_death_and_temp_in_postgres >> clean_after_pipeline
