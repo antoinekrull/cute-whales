@@ -22,7 +22,7 @@ FR_DEATH_INGESTION_DATA_PATH = '/opt/airflow/dags/data/ingestion/fr/'
 FR_DEATH_CLEAN_DATA_PATH = '/opt/airflow/dags/data/staging/'
 PARIS_GEOGRAPHIC_CODE = '75'
 MONGODB_IP = "127.0.0.1"
-MONGO_CONTAINER_ID = "29c2876f8e2f"
+MONGO_CONTAINER_ID = "9af611a0e6a0"
 
 #  DAG definition
 default_args_dict = {
@@ -448,7 +448,7 @@ merge_death = PythonOperator(
 create_death_and_temp_table = PostgresOperator(
         task_id='create_death_and_temp_table',
         dag=dag,
-        postgres_conn_id='postgres_default',
+        postgres_conn_id='postgres_db',
         sql='sql/create_death_and_temp_table.sql',
         trigger_rule='none_failed',
         autocommit=True,
@@ -475,7 +475,7 @@ create_postgres_insert_query = PythonOperator(
 store_death_and_temp_in_postgres = PostgresOperator(
         task_id='store_death_and_temp_in_postgres',
         dag=dag,
-        postgres_conn_id='postgres_default',
+        postgres_conn_id='postgres_db',
         sql='sql/temp/death_and_temp_insert.sql',
         trigger_rule='none_failed',
         autocommit=True,

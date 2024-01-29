@@ -13,7 +13,7 @@ A project for the data engneering class at INSA Lyon.
 
 After it is up, add a new connection:
 
-* Name - postgres_default
+* Name - postgres_db
 * Conn type - postgres
 * Host - db
 * Port - 5432
