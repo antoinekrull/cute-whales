@@ -3,12 +3,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import math
 import psycopg2
+import numpy as np
 
 # Return: List
 # Iterates over all the regions in the dataset and all the months of a year and returns a list with the correlation coefficient for 
 # each region and month
 def calculate_correlation(threshold):
-    # Define PostgreSQL connection parameters
+    # PostgreSQL connection parameters
     postgres_params = {
         "host": "127.0.0.1",
         "port": 5439,
@@ -17,7 +18,7 @@ def calculate_correlation(threshold):
         "password": "test",
     }
 
-    # Connect to the postgres databse
+    # connect to the postgres
     connection = psycopg2.connect(**postgres_params)
     cursor = connection.cursor()
 
@@ -25,6 +26,10 @@ def calculate_correlation(threshold):
     regions = cursor.fetchall()
 
     months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+    # OR
+    # cursor.execute('''SELECT DISTINCT month FROM deaths_and_temperature;''')
+    # months = cursor.fetchall()
+
     liste = []
     for region in regions:
         region = region[0]
@@ -48,17 +53,13 @@ def query_with_threshold(cursor, region, month, threshold):
     
     cursor.execute('''SELECT SUM(temperature) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     x_sum = cursor.fetchone()[0]
-
-    # Check if count_x is zero
-    if x_sum == None:
-        return "No data points meet the threshold."
+    
+    # If datapoint is less than threshold, return None
+    if x_sum is None:
+        return None
     
     cursor.execute('''SELECT SUM(totaldeaths) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     y_sum = cursor.fetchone()[0]
-    
-    # Check if sum_y is zero
-    if y_sum == None:
-        return "No data points meet the threshold."
     
     cursor.execute('''SELECT SUM(temperature * temperature) FROM deaths_and_temperature WHERE month = %s AND region = %s AND temperature >= %s;''', (month, region, threshold))
     x_squared_sum = cursor.fetchone()[0]
@@ -117,21 +118,22 @@ def query_without_threshold(cursor, region, month):
 # Visualize: heatmap with x-axis: Month and y-axis: correlation coefficient
 # Creates a heatmap of the correlation coefficients over the months of the year in different regions
 def visualization(threshold):
-    # Create a DataFrame from the data
+    # Create a DataFrame 
     df = pd.DataFrame(calculate_correlation(threshold), columns=['Month', 'Region', 'Correlation coefficient', 'Threshold'])
 
-    # Drop rows with null 'Correlation coefficient' values
+    # Drop rows with null values
     df = df.dropna(subset=['Correlation coefficient'])
-
-    # Convert 'Month' column to numeric
     df['Month'] = pd.to_numeric(df['Month'])
 
     # Visualize relationship between total deaths and temperature across all regions
     sns.lmplot(x='Month', y='Correlation coefficient', hue='Region', data=df)
+    plt.xticks(range(1, 13))
+    plt.yticks(np.arange(-1.0, 1.1, 0.1))
 
     plt.title('Heatmap')
     plt.show()
 
 
 if __name__ == "__main__":
-    visualization(15)
+    visualization(None)
+    #visualization(20)
