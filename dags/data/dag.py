@@ -57,9 +57,7 @@ def _import_clean_temperature_data():
     temperature_data = temperature_data.rename(columns={"dt": "datetime"})
     #  replaces empty AT fields with 0
     #  TODO: think of smarter value
-    temperature_data['AverageTemperature'].replace('', 0, inplace=True)
-    #  i am not sure why this is not working correctly
-    #  temperature_data.round({"AverageTemperature": 2})
+    temperature_data['AverageTemperature'].replace('', 5, inplace=True)
 
     start_date = pd.to_datetime("1980-01-01")
     #  drops all entries before 'start_date'
@@ -307,19 +305,29 @@ def _create_postgres_insert_query():
             if doc_tuple not in existing_records:
                 query += f"INSERT INTO deaths_and_temperature (year, month, region, totaldeaths, temperature) VALUES {doc_tuple} ON CONFLICT DO NOTHING;\n"
    
-    #  TODO: dont forget to delete afterwards
     with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
 
-def _clean_insert_file(**kwargs):
+def _clean_after_pipeline(**kwargs):
     # delete insert-query file for postgres
-    file_path = "/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql"
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        print(f"{file_path} has been removed")
+    file_path_sql = "/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql"
+    if os.path.exists(file_path_sql):
+        os.remove(file_path_sql)
+        print(f"{file_path_sql} has been removed")
     else:
-        print(f"{file_path} does not exist")
+        print(f"{file_path_sql} does not exist")
 
-    # TODO: Delete all files in staging folder, exept emptyfile.txt to?
+    #  deleting the content of the staging folder
+    staging_path = "/opt/airflow/dags/data/staging/"
+
+    for filename in os.listdir(staging_path):
+        file_path = os.path.join(staging_path, filename)
+
+        #  is needed for git to track the stagingfolder
+        if filename == "emptyfile.txt":
+            continue
+
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 
     # Connect to MongoDB
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
@@ -481,10 +489,10 @@ store_death_and_temp_in_postgres = PostgresOperator(
         autocommit=True,
     )
 
-clean_insert_data = PythonOperator(
+clean_after_pipeline = PythonOperator(
             task_id='clean_insert_data',
             dag=dag,
-            python_callable=_clean_insert_file,
+            python_callable=_clean_after_pipeline,
             op_kwargs={'mongo_port': 27017, 'db_name': "temperature_deaths"},
             trigger_rule='all_success',
             depends_on_past=False,
@@ -494,4 +502,4 @@ start >> [get_temperature_data, get_ber_death_data, fr_get_death_files_list]
 get_ber_death_data >> import_ber_death_data_to_mongodb
 get_temperature_data >> import_temperature_csv_to_mongodb
 fr_get_death_files_list >> fr_get_all_death_files >> fr_collect_specific_location_data >> fr_death_data_to_csv >> import_fr_deaths_csv_to_mongodb >> wrangle_fr_death_data_in_mongodb
-[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_death_and_temp_in_postgres >> clean_insert_data
+[wrangle_fr_death_data_in_mongodb, import_ber_death_data_to_mongodb, import_temperature_csv_to_mongodb] >> merge_death >> create_death_and_temp_table >> merge_deaths_and_temperatures >> create_postgres_insert_query >> store_death_and_temp_in_postgres >> clean_after_pipeline
