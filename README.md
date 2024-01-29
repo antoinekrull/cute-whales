@@ -21,6 +21,9 @@ After it is up, add a new connection:
 * Username - test
 * Password - test
 
+### Get startet; production
+If you have the jupyter notebook installed, open a new terminal and nativage to the right repository and run `jupyter notebook` to get access to the production.ipynb-file. You can use `pip install notebook` to intall jupyter notebook. Or you can run the production.py file in the directory if you can't get access to the jupyter-file.
+
 
 # Project presentation
 There is said that there can be found a connection between temperature and death. Through our pipeline 

@@ -22,7 +22,7 @@ FR_DEATH_INGESTION_DATA_PATH = '/opt/airflow/dags/data/ingestion/fr/'
 FR_DEATH_CLEAN_DATA_PATH = '/opt/airflow/dags/data/staging/'
 PARIS_GEOGRAPHIC_CODE = '75'
 MONGODB_IP = "127.0.0.1"
-MONGO_CONTAINER_ID = "9af611a0e6a0"
+MONGO_CONTAINER_ID = "103b12f38803"
 
 #  DAG definition
 default_args_dict = {
@@ -42,6 +42,7 @@ dag = DAG(
 
 #  functions
 # TODO: comment the code ?
+
 # Function to get the ID of the MongoDB container
 def get_mongo_container_id():
     client = docker.from_env()
