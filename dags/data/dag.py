@@ -20,9 +20,10 @@ TEMPERATURE_CLEAN_DATASET_PATH = "/opt/airflow/dags/data/staging/GlobalLandTempe
 FR_DEATH_DATASET_URL = 'https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5'
 FR_DEATH_INGESTION_DATA_PATH = '/opt/airflow/dags/data/ingestion/fr/'
 FR_DEATH_CLEAN_DATA_PATH = '/opt/airflow/dags/data/staging/'
+
 PARIS_GEOGRAPHIC_CODE = '75'
 MONGODB_IP = "127.0.0.1"
-MONGO_CONTAINER_ID = "103b12f38803"
+MONGO_CONTAINER_ID = "33990dd2988d"
 
 #  DAG definition
 default_args_dict = {
@@ -40,8 +41,7 @@ dag = DAG(
     template_searchpath=['/opt/airflow/dags/']
 )
 
-#  functions
-# TODO: comment the code ?
+#  Functions:
 
 # Function to get the ID of the MongoDB container
 def get_mongo_container_id():
@@ -51,6 +51,9 @@ def get_mongo_container_id():
         if 'mongo' in container.name.lower():
             return container.id
 
+# Fuction to import the data from .json-file, wrangle it and write it to .csv-file.
+# Cleaning: converting date strings to datetime, dropping unnecessary columns, 
+# filtering data to include only dates after January 1, 1980, and cities Berlin and Paris
 def _import_clean_temperature_data():
     temperature_data = pd.read_json(TEMPERATURE_DATASET_PATH)
     temperature_data["dt"] = pd.to_datetime(temperature_data["dt"])
@@ -70,10 +73,12 @@ def _import_clean_temperature_data():
 
     temperature_data.to_csv(TEMPERATURE_CLEAN_DATASET_PATH, encoding="ISO-8859-1", index=False)
 
+# Function import clean Berlin-death data to .csv-file.
 def _ber_import_clean_death_data():
     death_data = pd.read_csv(DEATH_BERLIN_DATASET_PATH, encoding='ISO-8859-1')
     death_data.to_csv(DEATH_BERLIN_CLEAN_DATASET_PATH, encoding="ISO-8859-1")
 
+# Function writing Berlin-death from .csv-file to Mongo-collection.
 def _import_ber_deaths_csv_to_mongodb(**kwargs):
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
@@ -97,6 +102,7 @@ def _import_ber_deaths_csv_to_mongodb(**kwargs):
             }
             collection.insert_one(document)
     
+# Help-function to get the number of the month from the month name
 def get_number_of_month(month):
     if month == "Januar" or month == "01":
         return "01"
@@ -123,6 +129,7 @@ def get_number_of_month(month):
     else:
         return "12"
 
+# Function writing temperature data from .csv-file to Mongo-collection.
 def _import_temperature_csv_to_mongodb(db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
@@ -144,12 +151,14 @@ def _import_temperature_csv_to_mongodb(db_name, collection_name):
             }
             collection.insert_one(document)
 
+# Function to get all the URLs of the French death-data files and write to a .txt-file.
 def _fr_get_death_files_list():
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'w') as f:
         resources = requests.get(FR_DEATH_DATASET_URL).json()['resources']
         for r in resources:
             f.write(r['latest']+ '\n')
 
+# Function to download all the French death data files from the URLs in the .txt-file and save them as separate .txt files.
 def _fr_get_all_death_files():
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}urls.txt', 'r') as f:
         for i, line in enumerate(f): 
@@ -164,6 +173,8 @@ def _fr_get_all_death_files():
                     except UnicodeDecodeError:
                         print(f"In file {i} occurred a decoding error")
 
+# Function to collect specific location data (Paris) from French death-data files, and write the data to a new .txt-file.
+# Cleaning: filtering for records where the death location matches the Paris geographic code.
 def _fr_collect_specific_location_data():
     location = PARIS_GEOGRAPHIC_CODE
     files = glob.glob(f'{FR_DEATH_INGESTION_DATA_PATH}*.txt')
@@ -180,11 +191,15 @@ def _fr_collect_specific_location_data():
     with open(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt','w') as f3:
         f3.writelines(data)
 
+# Function to convert the collected French death-data from a .txt-file to a .csv-file.
+# Cleaning: assigning column names to the data.
 def _fr_death_data_to_csv():
     account = pd.read_csv(f'{FR_DEATH_INGESTION_DATA_PATH}data.txt', header= None)
     account.columns = ['Name', 'Date of death', 'Location of Death']
     account.to_csv(f'{FR_DEATH_CLEAN_DATA_PATH}ParisDeathData.csv', index= None)
 
+# Function to import the French death data from a .csv-file to a Mongo collection.
+# Cleaning: splitting each row into separate fields and creating a document for each row.
 def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
@@ -206,6 +221,8 @@ def _import_fr_deaths_csv_to_mongodb(db_name, collection_name):
             documents.append(document)
     collection.insert_many(documents)
 
+# Function to wrangle the French death-data in a Mongo-collection.
+# Cleaning: aggregating the number of deaths for each month of each year and inserting the results as separate documents in the staging collection.
 def _wrangle_fr_death_data_in_mongodb(**kwargs):
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
@@ -244,7 +261,9 @@ def _wrangle_fr_death_data_in_mongodb(**kwargs):
             "totaldeaths" :  r['totalDeaths']
         }
         stag_col.insert_one(document)
-        
+
+# Function to merge the Berlin and Paris death data in a MongoDB database.
+# Cleaning: combining the two collections into a single collection.
 def _merge_death(**kwargs):
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
@@ -259,7 +278,8 @@ def _merge_death(**kwargs):
     merge_col.insert_many(list(ber_res))
     merge_col.insert_many(list(fr_res))
 
-
+# Function to merge the death data and temperature data in a MongoDB database.
+# Cleaning: merging the two collections on the year, month, and region fields and saving the result in a new collection.
 def _merge_deaths_and_temperatures():
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
 
@@ -277,8 +297,8 @@ def _merge_deaths_and_temperatures():
     
     db["deaths_and_temperature"].insert_many(merged_df.to_dict(orient="records"))
 
-    
-
+# Function to create an SQL insert query for the merged death and temperature data and write it to a file.
+# Cleaning: removing any records that already exist in the PostgreSQL database.
 def _create_postgres_insert_query():
     client = MongoClient(f"mongodb://{MONGO_CONTAINER_ID}:27017")
     db = client["temperature_deaths"]
@@ -308,6 +328,7 @@ def _create_postgres_insert_query():
    
     with open("/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql", "w") as f : f.write(query)
 
+# Function to clean up after the data pipeline has run.
 def _clean_after_pipeline(**kwargs):
     # delete insert-query file for postgres
     file_path_sql = "/opt/airflow/dags/data/sql/temp/death_and_temp_insert.sql"
@@ -349,7 +370,7 @@ def _clean_after_pipeline(**kwargs):
     # print("All collections in the database have been removed")
 
 
-#  operator definition
+#  Operator definition
 start = DummyOperator(
         task_id='start',
         dag=dag,
