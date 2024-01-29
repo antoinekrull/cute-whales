@@ -61,7 +61,7 @@ This dataset contains information about XXX in a .csv-file an is structured with
 - Include visualization of the data (?)
 
 ## Data Pipeline Design
-![alt text](/Pipeline.png)
+![alt text](/Images/Pipeline.png)
 
 ### Ingestion (Pipeline 1):
 Ingest city temperature data from sources.
@@ -100,7 +100,7 @@ This task calculates the correlation coefficient between temperature and total d
 `[{'Month': month, 'Region': region, 'Correlation coefficient': correlation_coefficient, 'Threshold': "None"}]`
 
 Table: question 1
-![alt text](/table_q1.png)
+![alt text](/Images/table_q1.png)
 
 Question 2: \
 Similar to the previous task, this calculates the correlation coefficient, but with an additional condition based on a temperature threshold. It considers only data points where the temperature is greater than or equal to the specified threshold. The threshold can vary, but for this example the value will be 20°. The output of the query will be on this form:
@@ -108,7 +108,7 @@ Similar to the previous task, this calculates the correlation coefficient, but w
 `[{'Month': month, 'Region': region, 'Correlation coefficient': correlation_coefficient, 'Threshold': 20.0}]`
 
 Table: question 1
-![alt text](/table_q2.png)
+![alt text](/Images/table_q2.png)
 
 
 #### Data visualization
@@ -121,12 +121,12 @@ The Seaborn library (sns) is used to create a scatter plot with a linear fit for
 The resulting visualization provides a quick overview of how the correlation coefficients vary across different months and regions. Negative values indicate a negative correlation, while positive values indicate a positive correlation. The strength of the correlation is determined by the magnitude of the coefficient.
 
 Heatmap: question 1
-![alt text](/heatmap_q1.png)
+![alt text](/Images/heatmap_q1.png)
 
 As we can see throught the heatmap for the first question, most of the values for both of the regions is close to zero, and this suggests that there is a weaker correlation between temperature and deaths for the different months of the year.
 
 Heatmap: question 2
-![alt text](/heatmap_q2.png)
+![alt text](/Images/heatmap_q2.png)
 
 As we can see throught the heatmap for the second question, there aren't that many values indication that most of the months does not have an average value higher that 20 degrees celsius. From the values we have, we can see that all of them are closer to 0, then to -1 or 1, suggesting that there is a weak correlation between temperatures above 20 degrees and deaths for the different months of the year. 
 
