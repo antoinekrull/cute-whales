@@ -121,7 +121,7 @@ The resulting visualization provides a quick overview of how the correlation coe
 Heatmap: question 1
 ![alt text](/heatmap_q1.png)
 
-As we can see throught the heatmap for the first question, most of the values for both of the regions is close to zero, and this suggests that there is a weaker correlation between temperature and deaths for the different months of the year.
+As we can see throught the heatmap for the first question, most of the values for both of the regions is close to zero, and this suggests that there is a weaker correlation between temperature and deaths for the different months of the year. But apparently, for some reason, our data suggests that there is a high correlation between temperature and death for February in Paris!
 
 Heatmap: question 2
 ![alt text](/heatmap_q2.png)
