@@ -127,7 +127,7 @@ The images below illustrate the effects of our wrangling: \
 A big part of our project consists of merging the different datasets. We divided this into two phases:
 
 First we merge the Berlin and the Paris death datasets simply by parsing all documents into a single collection.
-Afterwards this collection is merged with the temperature<<|||>>>><> data.
+Afterwards this collection is merged with the temperature data.
 The approach we apply here is a left outer join between the death and the temperature collection on the year, month and region where we stash the temperature data in an array. Then we create a new document for each document in the death collection and add the temperature value to the respective entry and insert this into a new collection called `deaths_and_temperature`.
 
 The image below illustrate the fist merge of all the deaths: \
