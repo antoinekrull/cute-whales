@@ -2,8 +2,6 @@
 **A small project exploring the potential connection between deaths and temperature, conducted by Antoine Krull, Danja Bauer and Synne Trettenes for the course Foundation of Data Engineering 2023 at INSA Lyon.**
 
 ## Table of contents
-- [Cute-whales Project](#cute-whales-project)
-  - [Table of contents](#table-of-contents)
 - [Introduction](#introduction)
 - [Data Sources](#data-sources)
 - [Project Lifecycle](#project-lifecycle)
@@ -69,14 +67,14 @@ Its ingestion process is divided into the following tasks which are executed in 
 - `death_data_to_csv()` - parses the txt file to a csv file in order to facilitate the ingestion into mongoDB
 - `import_deaths_csv_to_mongodb()` - creates a mongo collection and inserts the data from the csv file finally
 
-This is what an entry in the French death collection looks like right now:
+This is what an entry in the French death collection looks like right now: \
 <img src="Images/ingestion1.png" width="300">
 
 ### German Death Data Ingestion
 The German Federal Office of Statistics provides in CSV format which allows for easy parsing and insertion into our MongoDB database.
 This way we perform slight adjustments during the insertion process including the implementation of a numerical month format in `get_number_of_month` and the addition of a comlumn for specifying Berlin as the region.
 
-This is what the Berlin data looks like:
+This is what the Berlin data looks like: \
 <img src="Images/ingestion2.png" width="300">
 
 ### Temperature Data Ingestion
@@ -86,7 +84,7 @@ We begin by dropping multiple columns such as the temperature uncertainty.
 Moreover we exclude entries before 1980 as this enhances the compatibility with our death data and we retain only entries correspond to Berlin and Paris.
 Lastly we convert the refined data into a csv file facilitating its subsequent parsing into the database.
 
-Underneath you can see the format of the temperature data:
+Underneath you can see the format of the temperature data: \
 <img src="Images/collection_temperature" width="300">
 
 ## Staging Phase
@@ -97,7 +95,7 @@ As our interest lies in the number of deaths for each month, a crucial step invo
 
 The task called `wrangle_death_data_in_mongodb()` handels this step. Here an aggregation pipeline counts the deceased for each month and year and stores this count, together with the month and year, in a new collection called `fr_deaths_clean`.
 
-The images below illustrate the effects of our wrangling:
+The images below illustrate the effects of our wrangling: \
 <img src="Images/wrangling.png" width="300">
 
 ### Merging
@@ -107,17 +105,17 @@ First we merge the Berlin and the Paris death datasets simply by parsing all doc
 Afterwards this collection is merged with the temperature<<|||>>>><> data.
 The approach we apply here is a left outer join between the death and the temperature collection on the year, month and region where we stash the temperature data in an array. Then we create a new document for each document in the death collection and add the temperature value to the respective entry and insert this into a new collection called `deaths_and_temperature`.
 
-The image below illustrate the fist merge of all the deaths:
+The image below illustrate the fist merge of all the deaths: \
 <img src="Images/collection_deaths" width="300">
 
-The second image illustates the deahts and temperature collection: 
+The second image illustates the deahts and temperature collection: \
 <img src="Images/collection_death_temperature" width="300">
 
 ### Storage
 Now we add our data to a PostgreSQL database in order to make it permanent.
 This process is achieved by using SQL queries 
 
-Here is an example of what our data looks like in the database:
+Here is an example of what our data looks like in the database: \
 <img src="Images/table_postgres" width="300">
 
 ## Production Phase
