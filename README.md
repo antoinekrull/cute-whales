@@ -85,7 +85,7 @@ Moreover we exclude entries before 1980 as this enhances the compatibility with 
 Lastly we convert the refined data into a csv file facilitating its subsequent parsing into the database.
 
 Underneath you can see the format of the temperature data: \
-<img src="Images/collection_temperature" width="300">
+<img src="Images/collection_temperature.png" width="300">
 
 ## Staging Phase
 **In the staging phase we perform some data wrangling, merging of our data and we store it permanently into Postgres.**
@@ -106,17 +106,17 @@ Afterwards this collection is merged with the temperature<<|||>>>><> data.
 The approach we apply here is a left outer join between the death and the temperature collection on the year, month and region where we stash the temperature data in an array. Then we create a new document for each document in the death collection and add the temperature value to the respective entry and insert this into a new collection called `deaths_and_temperature`.
 
 The image below illustrate the fist merge of all the deaths: \
-<img src="Images/collection_deaths" width="300">
+<img src="Images/collection_deaths.png" width="300">
 
 The second image illustates the deahts and temperature collection: \
-<img src="Images/collection_death_temperature" width="300">
+<img src="Images/collection_death_temperature.png" width="300">
 
 ### Storage
 Now we add our data to a PostgreSQL database in order to make it permanent.
 This process is achieved by using SQL queries 
 
 Here is an example of what our data looks like in the database: \
-<img src="Images/table_postgres" width="300">
+<img src="Images/table_postgres.png" width="300">
 
 ## Production Phase
 During the production phase of the data pipeline, we perform two key tasks: visualizing the data within the PostgreSQL database and querying the database to calculate the correlation coefficient between temperature and total deaths in a region for each month. \
