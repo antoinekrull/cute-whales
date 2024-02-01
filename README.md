@@ -67,14 +67,14 @@ Its ingestion process is divided into the following tasks which are executed in 
 - `death_data_to_csv()` - parses the txt file to a csv file in order to facilitate the ingestion into mongoDB
 - `import_deaths_csv_to_mongodb()` - creates a mongo collection and inserts the data from the csv file finally
 
-This is what an entry in the French death collection looks like right now:
+This is what an entry in the French death collection looks like right now: \
 <img src="Images/ingestion1.png" width="300">
 
 ### German Death Data Ingestion
 The German Federal Office of Statistics provides in CSV format which allows for easy parsing and insertion into our MongoDB database.
 This way we perform slight adjustments during the insertion process including the implementation of a numerical month format in `get_number_of_month` and the addition of a comlumn for specifying Berlin as the region.
 
-This is what the Berlin data looks like:
+This is what the Berlin data looks like: \
 <img src="Images/ingestion2.png" width="300">
 
 ### Temperature Data Ingestion
