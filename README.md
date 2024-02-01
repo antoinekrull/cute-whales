@@ -2,8 +2,6 @@
 **A small project exploring the potential connection between deaths and temperature, conducted by Antoine Krull, Danja Bauer and Synne Trettenes for the course Foundation of Data Engineering 2023 at INSA Lyon.**
 
 ## Table of contents
-- [Cute-whales Project](#cute-whales-project)
-  - [Table of contents](#table-of-contents)
 - [Introduction](#introduction)
 - [Data Sources](#data-sources)
 - [Project Lifecycle](#project-lifecycle)
