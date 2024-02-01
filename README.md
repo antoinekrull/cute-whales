@@ -96,7 +96,7 @@ As our interest lies in the number of deaths for each month, a crucial step invo
 
 The task called `wrangle_death_data_in_mongodb()` handels this step. Here an aggregation pipeline counts the deceased for each month and year and stores this count, together with the month and year, in a new collection called `fr_deaths_clean`.
 
-The images below illustrate the effects of our wrangling:
+The images below illustrate the effects of our wrangling: \
 <img src="Images/wrangling.png" width="300">
 
 ### Merging
