@@ -137,7 +137,7 @@ The output of the query looks like this:
 ![Alt text](/Images/table_q1.png)
 
 #### Question 2: 
-Similar to the previous task, we compute the correlation coefficient incorporating an additional condition based on a temperature threshold. This condition considers only data points where the temperature is greater than or equal to the specified threshold. The threshold can vary, but for extreme heat the value will be 32°. \
+Similar to the previous task, we compute the correlation coefficient incorporating an additional condition based on a temperature threshold. This condition considers only data points where the temperature is greater than or equal to the specified threshold. The threshold can vary. \
 The output of the query looks like this:
 
 ![Alt text](/Images/table_q2.png)
@@ -163,7 +163,7 @@ When analyzing the heatmap for the second question, it becomes noticable that th
 
 # Difficulties
 **In this section we will dive into certain difficulties we encountered.** \
-Firstly, we faced several with Postgres, taking up a lotof our time. These challenges encompassed connection errors, issues with data types and other abstract errors. However we were able to tackle these challenges by creating a new Postgres container and defining a docker-compose.yaml. \
+Firstly, we faced several with Postgres, taking up a lot of our time. These challenges encompassed connection errors, issues with data types and other abstract errors. However we were able to tackle these challenges by creating a new Postgres container and defining a docker-compose.yaml. \
 Secondly creating a pipeline that works seamlessly on all team members' PCs proved to be difficult as each person encountered different errors.\
 Lastly to resolve errors related to accessing the Docker container arise, we implemented the function `get_mongo_container_id()` to retrieve the Mongo container ID. Despite these efforts, we were unable to achieve complete reliability, therefore we've resorted to set the ID globally.
 
