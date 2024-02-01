@@ -1,6 +1,34 @@
 # Cute-whales Project
 **A small project exploring the potential connection between deaths and temperature, conducted by Antoine Krull, Danja Bauer and Synne Trettenes for the course Foundation of Data Engineering 2023 at INSA Lyon.**
 
+## How to run?
+### Let's run the docker image.
+
+1. Make sure Docker Desktop is running.
+2. Run `mkdir -p ./dags ./logs ./plugins ./config` and `echo -e "AIRFLOW_UID=$(id -u)" > .env`
+3. Run `docker-compose up airflow-init`, run database migrations and create the first user account.
+4. Build and run the environment using the `docker-compose up`.
+5. In a new terminal, run `docker ps` to get the mongo container id and copy this.
+6. In the `dag.py` file on line 29, paste your mongo container id.
+7. Connect to the airflow dashboard `localhost:8080`, where username and password are `airflow`
+8. Add a connection to the postgreSQL database by navigating to Admin -> Connections, then click the blue `+`.
+
+Then put in the following data:
+
+* Name - postgres_db
+* Conn type -postgres
+* Host - db
+* Port - 5432
+* Database - postgres
+* Username - test
+* Password - test
+
+### For the production phase:
+1. Make sure you've got jupyter notebook installed or install it using `pip install notebook`
+2. Open a terminal and navigate to the right repo
+3. Run `jupyter notebook` to acces the production.ipynb-file
+If you cannot acces this file just run production.py
+
 ## Table of contents
 - [Introduction](#introduction)
 - [Data Sources](#data-sources)
@@ -21,9 +49,6 @@
 - [Difficulties](#difficulties)
 - [Further considerations \& ideas](#further-considerations--ideas)
 - [Project Submission Checklist](#project-submission-checklist)
-- [How to run?](#how-to-run)
-    - [Let's run the docker image.](#lets-run-the-docker-image)
-    - [For the production phase:](#for-the-production-phase)
 
 # Introduction
 As we want to analyze the correlation between the number of deaths and various aspects of temperatures, we formulated the following questions:
@@ -182,32 +207,3 @@ Furthermore, the correlations could be examined for other cities, broadening the
 - [x] have permanent storage
 - [x] deploy queries to answer questions
 - [x] visualization
-
-
-# How to run?
-### Let's run the docker image.
-
-1. Make sure Docker Desktop is running.
-2. Run `mkdir -p ./dags ./logs ./plugins ./config` and `echo -e "AIRFLOW_UID=$(id -u)" > .env`
-3. Run `docker-compose up airflow-init`, run database migrations and create the first user account.
-4. Build and run the environment using the `docker-compose up`.
-5. In a new terminal, run `docker ps` to get the mongo container id and copy this.
-6. In the `dag.py` file on line 29, paste your mongo container id.
-7. Connect to the airflow dashboard `localhost:8080`, where username and password are `airflow`
-8. Add a connection to the postgreSQL database by navigating to Admin -> Connections, then click the blue `+`.
-
-Then put in the following data:
-
-* Name - postgres_db
-* Conn type -postgres
-* Host - db
-* Port - 5432
-* Database - postgres
-* Username - test
-* Password - test
-
-### For the production phase:
-1. Make sure you've got jupyter notebook installed or install it using `pip install notebook`
-2. Open a terminal and navigate to the right repo
-3. Run `jupyter notebook` to acces the production.ipynb-file
-If you cannot acces this file just run production.py
