@@ -1,4 +1,4 @@
-_id,year,month,region,total deaths
+_id,year,month,region,totaldeaths
 655df55223fa90604159a4a2,1986,03,Paris,1596
 655df55223fa90604159a4a3,2011,06,Paris,3
 655df55223fa90604159a4a4,1984,01,Paris,1479
